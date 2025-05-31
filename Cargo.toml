@@ -1,0 +1,30 @@
+[workspace]
+members = ["rs-mojave-network-core", "rs-mojave-transport-node", "rs-mojave-transport-webtransport"]
+resolver = "2"
+
+[workspace.dependencies]
+tracing = { version = "0.1.41", default-features = false }
+tracing-subscriber = { version = "0.3.19", default-features = false }
+tracing-test = { version = "0.2", default-features = false }
+tracing-log = { version = "0.2", default-features = false }
+tracing-wasm = { version = "0.2", default-features = false }
+
+anyhow = { version = "1.0", default-features = false }
+
+thiserror = { version = "2.0", default-features = false }
+
+tokio = { version = "1.45", default-features = false }
+
+[workspace.lints.rust.unexpected_cfgs]
+level = "deny"
+check-cfg = ['cfg(coverage)']
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
