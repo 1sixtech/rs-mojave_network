@@ -1,5 +1,9 @@
 [workspace]
-members = ["rs-mojave-network-core", "rs-mojave-transport-node", "rs-mojave-transport-webtransport"]
+members = [
+  "rs-mojave-network-core",
+  "rs-mojave-transport-node",
+  "rs-mojave-transport-webtransport",
+]
 resolver = "2"
 
 [workspace.dependencies]

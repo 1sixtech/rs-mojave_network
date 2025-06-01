@@ -7,13 +7,13 @@ edition = "2024"
 rs-mojave-network-core = { path = "../rs-mojave-network-core" }
 rs-mojave-transport-webtransport = { path = "../rs-mojave-transport-webtransport" }
 
-multiaddr =  { version = "0.18" } 
+multiaddr = { version = "0.18" }
 
 libp2p-identity = { version = "0.2", features = ["peerid"] }
 
 wasm-bindgen-futures = "0.4"
 
-thiserror = { version = "2"}
+thiserror = { version = "2" }
 
 futures = { version = "0.3", features = ["executor", "thread-pool"] }
 
@@ -32,7 +32,7 @@ version = "0.2"
 features = ["ed25519", "rand"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-moq-native = "0.6.8" 
+moq-native = "0.6.8"
 
 [dev-dependencies]
 clap = { version = "4.5", features = ["derive"] }

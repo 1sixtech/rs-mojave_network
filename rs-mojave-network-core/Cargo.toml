@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-multiaddr =  { version = "0.18" } 
+multiaddr = { version = "0.18" }
 
 futures = { version = "0.3" }
 
