@@ -31,7 +31,6 @@ async fn main() -> anyhow::Result<()> {
     info!("Creating a node with WebTransport...");
 
     let keypair = Keypair::generate_ed25519();
-    let mut builder = Builder::new(keypair);
     let config = Config::parse();
 
     let bind = tokio::net::lookup_host(config.bind)
@@ -48,12 +47,13 @@ async fn main() -> anyhow::Result<()> {
 
     let config = quic::Config { bind, tls };
 
-    builder.with_transport(|keypair| {
-        rs_mojave_transport_webtransport::WebTransport::new(config, true, keypair.clone())
-            .map(|(peer_id, connection)| (peer_id, StreamMuxerBox::new(connection)))
-            .boxed()
-    });
-    let mut node: Node = builder.build();
+    let mut node = Builder::new(keypair)
+        .with_transport(|keypair| {
+            rs_mojave_transport_webtransport::WebTransport::new(config, true, keypair.clone())
+                .map(|(peer_id, connection)| (peer_id, StreamMuxerBox::new(connection)))
+                .boxed()
+        })
+        .build();
 
     println!("Node created successfully with Peer ID: {}", node.peer_id);
 

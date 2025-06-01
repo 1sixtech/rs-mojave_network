@@ -2,37 +2,41 @@ use std::collections::HashMap;
 
 use multiaddr::PeerId;
 use rs_mojave_network_core::{
-	Protocol, Transport,
-	muxing::StreamMuxerBox,
-	transport::{self},
+    Protocol, Transport,
+    muxing::StreamMuxerBox,
+    transport::{self},
 };
 
 use crate::Node;
 
 pub struct Builder {
-	keypair: libp2p_identity::Keypair,
-	transports: HashMap<Protocol, transport::Boxed<(PeerId, StreamMuxerBox)>>,
+    keypair: libp2p_identity::Keypair,
+    transports: HashMap<Protocol, transport::Boxed<(PeerId, StreamMuxerBox)>>,
 }
 
 impl Builder {
-	pub fn new(keypair: libp2p_identity::Keypair) -> Self {
-		Self {
-			keypair,
-			transports: HashMap::new(),
-		}
-	}
+    pub fn new(keypair: libp2p_identity::Keypair) -> Self {
+        Self {
+            keypair,
+            transports: HashMap::new(),
+        }
+    }
 
-	pub fn with_transport(
-		&mut self,
-		constructor: impl FnOnce(&libp2p_identity::Keypair) -> transport::Boxed<(PeerId, StreamMuxerBox)>,
-	) {
-		let transport = constructor(&self.keypair);
+    pub fn with_transport(
+        mut self,
+        constructor: impl FnOnce(
+            &libp2p_identity::Keypair,
+        ) -> transport::Boxed<(PeerId, StreamMuxerBox)>,
+    ) -> Self {
+        let transport = constructor(&self.keypair);
 
-		self.transports
-			.insert(transport.supported_protocols_for_dialing(), transport);
-	}
+        self.transports
+            .insert(transport.supported_protocols_for_dialing(), transport);
 
-	pub fn build(self) -> Node {
-		Node::new(self.keypair.public().to_peer_id(), self.transports)
-	}
+        self
+    }
+
+    pub fn build(self) -> Node {
+        Node::new(self.keypair.public().to_peer_id(), self.transports)
+    }
 }
