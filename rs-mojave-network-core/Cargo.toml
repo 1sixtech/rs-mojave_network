@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-multiaddr = { version = "0.18" }
-
-futures = { version = "0.3" }
-
-pin-project = "1.1"
+multiaddr.workspace = true
+futures.workspace = true
+pin-project.workspace = true
 
 [lints]
 workspace = true

@@ -4,38 +4,30 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rs-mojave-network-core = { path = "../rs-mojave-network-core" }
-rs-mojave-transport-webtransport = { path = "../rs-mojave-transport-webtransport" }
-
-multiaddr = { version = "0.18" }
-
-libp2p-identity = { version = "0.2", features = ["peerid"] }
-
-wasm-bindgen-futures = "0.4"
-
-thiserror = { version = "2" }
-
-futures = { version = "0.3", features = ["executor", "thread-pool"] }
-
-web-time = { version = "1.1" }
-
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-
-anyhow = { workspace = true }
+rs-mojave-network-core.workspace = true
+rs-mojave-transport-webtransport.workspace = true
+multiaddr.workspace = true
+libp2p-identity = { workspace = true, features = ["peerid"] }
+wasm-bindgen-futures.workspace = true
+thiserror.workspace = true
+futures = { workspace = true, features = ["executor", "thread-pool"] }
+web-time.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["full"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.libp2p-identity]
-version = "0.2"
+workspace = true
 features = ["ed25519", "rand"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-moq-native = "0.6.8"
+moq-native.workspace = true
 
 [dev-dependencies]
-clap = { version = "4.5", features = ["derive"] }
+clap = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true

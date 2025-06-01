@@ -104,7 +104,6 @@ impl FuturesStream for Listener {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            tracing::info!("poll_next");
             if let Some(event) = self.pending_event.take() {
                 return Poll::Ready(Some(event));
             }
