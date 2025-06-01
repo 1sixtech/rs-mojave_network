@@ -14,6 +14,9 @@ use crate::error::Error;
 use crate::peer::manager;
 use crate::{NodeEvent, peer};
 
+type TransportEventBoxed =
+	TransportEvent<<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade, io::Error>;
+
 pub struct Node {
 	pub peer_id: PeerId,
 	transports: HashMap<Protocol, Boxed<(PeerId, StreamMuxerBox)>>,
@@ -99,35 +102,66 @@ impl Node {
 		}
 	}
 
+	#[inline]
 	fn handle_peer_event(&mut self, event: peer::manager::PeerEvent) {
 		info!(peer_id = %self.peer_id, ?event, "Peer event");
 	}
 
-	fn handle_transport_event(
-		&mut self,
-		event: TransportEvent<<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade, io::Error>,
-	) {
+	#[inline]
+	fn handle_transport_event(&mut self, event: TransportEventBoxed) {
 		match event {
 			TransportEvent::Incoming {
 				remote_addr,
 				local_addr,
 				upgrade,
-			} => {
-				self.peer_manager.add_incoming(upgrade, local_addr, remote_addr);
-			}
-			TransportEvent::ListenAddress { address } => {
-				info!(peer_id = %self.peer_id, %address, "Listening on");
-			}
-			TransportEvent::AddressExpired { address } => {
-				info!(peer_id = %self.peer_id, %address, "Listen address expired");
-			}
-			TransportEvent::ListenerError { error } => {
-				info!(peer_id = %self.peer_id, ?error, "Failed to listen");
-			}
-			TransportEvent::ListenerClosed { reason: _ } => {
-				info!(peer_id = %self.peer_id, "Listen closed");
-			}
+			} => self.handle_transport_event_incoming(upgrade, remote_addr, local_addr),
+			TransportEvent::ListenAddress { address } => self.handle_transport_event_listen_address(address),
+			TransportEvent::AddressExpired { address } => self.handle_transport_event_address_expired(address),
+			TransportEvent::ListenerClosed { reason } => self.handle_transport_event_listener_closed(reason),
+			TransportEvent::ListenerError { error } => self.handle_transport_event_listener_error(error),
 		}
+	}
+
+	#[inline]
+	fn handle_transport_event_incoming<TFut>(&mut self, upgrade: TFut, remote_addr: Multiaddr, local_addr: Multiaddr)
+	where
+		TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
+	{
+		tracing::debug!(peer_id = %self.peer_id, %remote_addr, "Incoming connection");
+		self.peer_manager.add_incoming(upgrade, local_addr, remote_addr.clone());
+
+		let node_event = NodeEvent::IncomingConnection {
+			remote_address: remote_addr,
+		};
+		self.pending_events.push_back(node_event);
+	}
+
+	#[inline]
+	fn handle_transport_event_listen_address(&mut self, address: Multiaddr) {
+		tracing::debug!(peer_id = %self.peer_id, %address, "Listening on");
+		let node_event = NodeEvent::NewListenAddr { address };
+		self.pending_events.push_back(node_event);
+	}
+
+	#[inline]
+	fn handle_transport_event_address_expired(&mut self, address: Multiaddr) {
+		tracing::debug!(peer_id = %self.peer_id, %address, "Listen address expired");
+		let node_event = NodeEvent::AddressExpired { address };
+		self.pending_events.push_back(node_event);
+	}
+
+	#[inline]
+	fn handle_transport_event_listener_closed(&mut self, reason: Result<(), io::Error>) {
+		tracing::debug!(peer_id = %self.peer_id, ?reason, "Listener closed");
+		let node_event = NodeEvent::ListenerClosed { reason };
+		self.pending_events.push_back(node_event);
+	}
+
+	#[inline]
+	fn handle_transport_event_listener_error(&mut self, error: io::Error) {
+		tracing::debug!(peer_id = %self.peer_id, ?error, "Listener error");
+		let node_event = NodeEvent::ListenerError { error };
+		self.pending_events.push_back(node_event);
 	}
 }
 
@@ -151,9 +185,9 @@ fn extract_protocol_from_multiaddr(address: &Multiaddr) -> Result<Protocol, Erro
 
 	for component in components {
 		if component == MultiaddrProtocol::WebTransport {
-  				p2p_protocol = Some(Protocol::WebTransport);
-  				break;
-  			}
+			p2p_protocol = Some(Protocol::WebTransport);
+			break;
+		}
 	}
 	p2p_protocol.ok_or_else(|| Error::NoProtocolsInMultiaddr(address.clone()))
 }

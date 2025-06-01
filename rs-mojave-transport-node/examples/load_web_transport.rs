@@ -5,87 +5,77 @@ use libp2p_identity::Keypair;
 use moq_native::quic;
 use rs_mojave_network_core::muxing::StreamMuxerBox;
 use rs_mojave_network_core::transport::Transport;
-use rs_mojave_transport_node::{Builder, Node};
+use rs_mojave_transport_node::Builder;
 use tracing::info;
 
 #[derive(Parser, Clone)]
 pub struct Config {
-    /// Listen on this address, both TCP and UDP.
-    #[arg(long, short = 'b', default_value = "[::]:443")]
-    pub bind: String,
+	/// Listen on this address, both TCP and UDP.
+	#[arg(long, short = 'b', default_value = "[::]:443")]
+	pub bind: String,
 
-    /// The TLS configuration.
-    #[command(flatten)]
-    pub tls: moq_native::tls::Args,
+	/// The TLS configuration.
+	#[command(flatten)]
+	pub tls: moq_native::tls::Args,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_file(true)
-        .with_line_number(true)
-        .with_target(true)
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-        .init();
+	tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.with_file(true)
+		.with_line_number(true)
+		.with_target(true)
+		.with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+		.init();
 
-    info!("Creating a node with WebTransport...");
+	info!("Creating a node with WebTransport...");
 
-    let keypair = Keypair::generate_ed25519();
-    let config = Config::parse();
+	let keypair = Keypair::generate_ed25519();
+	let config = Config::parse();
 
-    let bind = tokio::net::lookup_host(config.bind)
-        .await
-        .context("invalid bind address")?
-        .next()
-        .context("invalid bind address")?;
+	let bind = tokio::net::lookup_host(config.bind)
+		.await
+		.context("invalid bind address")?
+		.next()
+		.context("invalid bind address")?;
 
-    let tls = config.tls.load()?;
+	let tls = config.tls.load()?;
 
-    if tls.server.is_none() {
-        anyhow::bail!("missing TLS certificates");
-    }
+	if tls.server.is_none() {
+		anyhow::bail!("missing TLS certificates");
+	}
 
-    let config = quic::Config { bind, tls };
+	let config = quic::Config { bind, tls };
 
-    let mut node = Builder::new(keypair)
-        .with_transport(|keypair| {
-            rs_mojave_transport_webtransport::WebTransport::new(config, true, keypair.clone())
-                .map(|(peer_id, connection)| (peer_id, StreamMuxerBox::new(connection)))
-                .boxed()
-        })?
-        .build();
+	let mut node = Builder::new(keypair)
+		.with_transport(|keypair| {
+			rs_mojave_transport_webtransport::WebTransport::new(config, true, keypair.clone())
+				.map(|(peer_id, connection)| (peer_id, StreamMuxerBox::new(connection)))
+				.boxed()
+		})?
+		.build();
 
-    tracing::info!("Node created successfully with Peer ID: {}", node.peer_id);
+	tracing::info!("Node created successfully with Peer ID: {}", node.peer_id);
 
-    let address = "/ip4/0.0.0.0/udp/443/quic-v1/webtransport"
-        .parse()
-        .context("failed to parse the WebTransport address")?;
+	let address = "/ip4/0.0.0.0/udp/443/quic-v1/webtransport"
+		.parse()
+		.context("failed to parse the WebTransport address")?;
 
-    node.listen(address).await?;
+	node.listen(address).await?;
 
-    //let address = loop {
-    //	if let Event::NewListenAddr { address } = node.select_next_some().await {
-    //		info!(address = %address, "Listening on");
-    //		break address;
-    //	}
-    //};
+	loop {
+		tokio::select! {
+			event = node.next() => {
+				tracing::trace!(?event)
+			},
+			_ = tokio::signal::ctrl_c() => {
+				// TODO: Handle shutdown gracefully.
+				info!("Ctrl+C received, shutting down");
+				break;
+			}
+		}
+	}
 
-    //info!(address = %address, "Listening on!!!!!!");
-
-    loop {
-        tracing::info!("loop");
-        tokio::select! {
-            event = node.next() => {
-                tracing::trace!(?event)
-            },
-            _ = tokio::signal::ctrl_c() => {
-                // TODO: Handle shutdown gracefully.
-                info!("Ctrl+C received, shutting down");
-                break;
-            }
-        }
-    }
-
-    Ok(())
+	Ok(())
 }
