@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
             rs_mojave_transport_webtransport::WebTransport::new(config, true, keypair.clone())
                 .map(|(peer_id, connection)| (peer_id, StreamMuxerBox::new(connection)))
                 .boxed()
-        })
+        })?
         .build();
 
     tracing::info!("Node created successfully with Peer ID: {}", node.peer_id);
