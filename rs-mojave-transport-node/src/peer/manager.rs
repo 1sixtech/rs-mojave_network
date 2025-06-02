@@ -7,6 +7,7 @@ use futures::{
 };
 use multiaddr::{Multiaddr, PeerId};
 use rs_mojave_network_core::{
+	connection::ConnectionOrigin,
 	muxing::{StreamMuxerBox, StreamMuxerExt},
 	transport::TransportError,
 };
@@ -93,6 +94,7 @@ impl Manager {
 		self.pending.insert(
 			connection_id,
 			PendingPeer {
+				connection_origin: ConnectionOrigin::Listener,
 				abort_notifier: Some(abort_notifier),
 				accepted_at: Instant::now(),
 			},
@@ -119,6 +121,7 @@ impl Manager {
 		self.pending.insert(
 			connection_id,
 			PendingPeer {
+				connection_origin: ConnectionOrigin::Dialer,
 				abort_notifier: Some(abort_notifier),
 				accepted_at: Instant::now(),
 			},
@@ -171,13 +174,9 @@ impl Manager {
 	fn handle_pending_peer_event(&mut self, event: task::PendingPeerEvent) -> Poll<PeerEvent> {
 		match event {
 			task::PendingPeerEvent::ConnectionEstablished { connection_id, output } => {
-				self.pending.remove(&connection_id);
 				self.handle_pending_peer_event_connection_established(connection_id, output)
 			}
 			task::PendingPeerEvent::PendingFailed { connection_id, error } => {
-				self.pending.remove(&connection_id);
-				// connection is lost at that point, so we remove it from the ConnectionId registry
-				ConnectionId::remove(connection_id);
 				self.handle_pending_peer_event_pending_failed(connection_id, error)
 			}
 		}
@@ -189,12 +188,25 @@ impl Manager {
 		connection_id: ConnectionId,
 		output: (PeerId, StreamMuxerBox),
 	) -> Poll<PeerEvent> {
+		let PendingPeer {
+			connection_origin,
+			abort_notifier: _,
+			accepted_at,
+		} = self
+			.pending
+			.remove(&connection_id)
+			.expect("Entry in `self.pending` not found for pending peer");
+
 		let (peer_id, stream_muxer_box) = output;
 
+		let established_in = accepted_at.elapsed();
+
 		Poll::Ready(PeerEvent::ConnectionEstablished {
+			connection_origin,
 			connection_id,
 			peer_id,
 			stream_muxer_box,
+			established_in,
 		})
 	}
 
@@ -204,6 +216,9 @@ impl Manager {
 		connection_id: ConnectionId,
 		error: Either<PendingOutboundConnectionError, PendingInboundConnectionError>,
 	) -> Poll<PeerEvent> {
+		self.pending.remove(&connection_id);
+		// connection is lost at that point, so we remove it from the ConnectionId registry
+		ConnectionId::remove(connection_id);
 		match error {
 			Either::Left(error) => Poll::Ready(PeerEvent::PendingOutboundConnectionError { connection_id, error }),
 			Either::Right(error) => Poll::Ready(PeerEvent::PendingInboundConnectionError { connection_id, error }),
@@ -223,13 +238,17 @@ pub(crate) enum PeerEvent {
 	},
 
 	ConnectionEstablished {
+		connection_origin: ConnectionOrigin,
 		connection_id: ConnectionId,
 		peer_id: PeerId,
 		stream_muxer_box: StreamMuxerBox,
+		established_in: web_time::Duration,
 	},
 }
 
 struct PendingPeer {
+	connection_origin: ConnectionOrigin,
+
 	/// When dropped, notifies the task which then knows to terminate.
 	abort_notifier: Option<oneshot::Sender<Infallible>>,
 	/// The moment we became aware of this possible connection, useful for timing metrics.

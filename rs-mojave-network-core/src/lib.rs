@@ -1,3 +1,4 @@
+pub mod connection;
 pub mod muxing;
 mod protocol;
 pub mod transport;
@@ -7,11 +8,11 @@ pub use protocol::*;
 pub use transport::Transport;
 
 pub mod util {
-    use std::convert::Infallible;
+	use std::convert::Infallible;
 
-    /// A safe version of [`std::intrinsics::unreachable`].
-    #[inline(always)]
-    pub fn unreachable(x: Infallible) -> ! {
-        match x {}
-    }
+	/// A safe version of [`std::intrinsics::unreachable`].
+	#[inline(always)]
+	pub fn unreachable(x: Infallible) -> ! {
+		match x {}
+	}
 }

@@ -21,8 +21,18 @@ pub struct Config {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+	let filter = tracing_subscriber::EnvFilter::builder()
+		.with_default_directive(tracing::Level::INFO.into())
+		.from_env_lossy()
+		.add_directive("quinn=info".parse().unwrap())
+		.add_directive("h2=warn".parse().unwrap())
+		.add_directive("web_transport_quinn=info".parse().unwrap())
+		.add_directive("rustls=info".parse().unwrap())
+		.add_directive("reqwest=info".parse().unwrap())
+		.add_directive("hyper_util=info".parse().unwrap());
+
 	tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.with_env_filter(filter)
 		.with_file(true)
 		.with_line_number(true)
 		.with_target(true)
