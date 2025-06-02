@@ -12,7 +12,6 @@ pub(crate) enum PendingOutboundConnectionError {
 }
 
 #[derive(Debug)]
-
 pub(crate) enum PendingInboundConnectionError {
 	Aborted,
 	Transport(TransportError<io::Error>),

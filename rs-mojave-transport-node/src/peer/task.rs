@@ -26,7 +26,7 @@ pub(crate) async fn new_pending_outgoing_peer<TFut>(
 	abort_receiver: oneshot::Receiver<Infallible>,
 	mut events: mpsc::Sender<PendingPeerEvent>,
 ) where
-	TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
+	TFut: Future<Output = Result<(PeerId, StreamMuxerBox), TransportError<std::io::Error>>> + Send + 'static,
 {
 	tracing::debug!("New outgoing pending peer");
 	match futures::future::select(abort_receiver, Box::pin(future)).await {
@@ -44,7 +44,7 @@ pub(crate) async fn new_pending_outgoing_peer<TFut>(
 		Either::Right((Err(e), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
-					error: Either::Left(PendingOutboundConnectionError::Transport(TransportError::Other(e))),
+					error: Either::Left(PendingOutboundConnectionError::Transport(e)),
 				})
 				.await;
 		}

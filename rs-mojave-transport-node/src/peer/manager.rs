@@ -1,12 +1,15 @@
 use futures::{
 	StreamExt,
 	channel::{mpsc, oneshot},
-	future::Either,
+	future::{BoxFuture, Either},
 	prelude::*,
 	stream::{FuturesUnordered, SelectAll},
 };
 use multiaddr::{Multiaddr, PeerId};
-use rs_mojave_network_core::muxing::{StreamMuxerBox, StreamMuxerExt};
+use rs_mojave_network_core::{
+	muxing::{StreamMuxerBox, StreamMuxerExt},
+	transport::TransportError,
+};
 use std::{
 	collections::HashMap,
 	convert::Infallible,
@@ -16,9 +19,9 @@ use tracing::Instrument;
 use web_time::Instant;
 
 use crate::{
+	connection::ConnectionId,
 	executor::{Executor, get_executor},
-	peer::task,
-	peer::{PendingInboundConnectionError, PendingOutboundConnectionError},
+	peer::{PendingInboundConnectionError, PendingOutboundConnectionError, task},
 };
 
 struct TaskExecutor(Box<dyn Executor + Send>);
@@ -42,8 +45,9 @@ pub struct Manager {
 	new_peer_dropped_listeners: FuturesUnordered<oneshot::Receiver<StreamMuxerBox>>,
 	peer_events: SelectAll<mpsc::Receiver<task::PeerEvent>>,
 	task_executor: TaskExecutor,
-	pending: HashMap<String, PendingPeer>,
+	pending: HashMap<ConnectionId, PendingPeer>,
 
+	// connections
 	no_established_connections_waker: Option<Waker>,
 }
 
@@ -62,8 +66,13 @@ impl Manager {
 		}
 	}
 
-	pub(crate) fn add_incoming<TFut>(&mut self, fut: TFut, local_addr: Multiaddr, remote_addr: Multiaddr)
-	where
+	pub(crate) fn add_incoming<TFut>(
+		&mut self,
+		upgrage: TFut,
+		connection_id: ConnectionId,
+		local_addr: Multiaddr,
+		remote_addr: Multiaddr,
+	) where
 		TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
 	{
 		let (abort_notifier, abort_receiver) = oneshot::channel();
@@ -72,11 +81,12 @@ impl Manager {
 		span.follows_from(tracing::Span::current());
 
 		self.task_executor.spawn(
-			task::new_pending_inbound_peer(fut, abort_receiver, self.pending_peer_events_tx.clone()).instrument(span),
+			task::new_pending_inbound_peer(upgrage, abort_receiver, self.pending_peer_events_tx.clone())
+				.instrument(span),
 		);
 
 		self.pending.insert(
-			"123".to_string(),
+			connection_id,
 			PendingPeer {
 				abort_notifier: Some(abort_notifier),
 				accepted_at: Instant::now(),
@@ -84,10 +94,12 @@ impl Manager {
 		);
 	}
 
-	pub(crate) fn add_outgoing<TFut>(&mut self, fut: TFut, remote_addr: Multiaddr)
-	where
-		TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
-	{
+	pub(crate) fn add_outgoing(
+		&mut self,
+		dial: BoxFuture<'static, Result<(PeerId, StreamMuxerBox), TransportError<std::io::Error>>>,
+		connection_id: ConnectionId,
+		remote_addr: Multiaddr,
+	) {
 		let (abort_notifier, abort_receiver) = oneshot::channel();
 
 		let span =
@@ -95,11 +107,11 @@ impl Manager {
 		span.follows_from(tracing::Span::current());
 
 		self.task_executor.spawn(
-			task::new_pending_outgoing_peer(fut, abort_receiver, self.pending_peer_events_tx.clone()).instrument(span),
+			task::new_pending_outgoing_peer(dial, abort_receiver, self.pending_peer_events_tx.clone()).instrument(span),
 		);
 
 		self.pending.insert(
-			"123".to_string(),
+			connection_id,
 			PendingPeer {
 				abort_notifier: Some(abort_notifier),
 				accepted_at: Instant::now(),
@@ -145,7 +157,7 @@ impl Manager {
 	}
 
 	#[inline]
-	fn handle_peer_event(&mut self, event: task::PeerEvent) -> Poll<PeerEvent> {
+	fn handle_peer_event(&mut self, _event: task::PeerEvent) -> Poll<PeerEvent> {
 		todo!()
 	}
 

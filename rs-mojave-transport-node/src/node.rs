@@ -1,8 +1,9 @@
-use futures::FutureExt;
+use futures::future::BoxFuture;
 use futures::stream::FusedStream;
+use futures::{FutureExt, TryFutureExt};
 use multiaddr::{Multiaddr, PeerId, Protocol as MultiaddrProtocol};
 use rs_mojave_network_core::muxing::StreamMuxerBox;
-use rs_mojave_network_core::transport;
+use rs_mojave_network_core::transport::{self, TransportError};
 use rs_mojave_network_core::{Protocol, Transport, transport::Boxed, transport::TransportEvent};
 use std::collections::{HashMap, VecDeque};
 use std::io;
@@ -10,8 +11,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tracing::{error, info};
 
+use crate::connection::ConnectionId;
 use crate::error::Error;
-use crate::peer::manager;
+use crate::peer::manager::{self, PeerEvent};
 use crate::{NodeEvent, peer};
 
 type TransportEventBoxed =
@@ -35,7 +37,8 @@ impl Node {
 	}
 
 	pub async fn dial(&mut self, remote_peer_id: PeerId, remote_address: Multiaddr) -> Result<(), Error> {
-		info!(peer_id = %self.peer_id, %remote_peer_id, %remote_address, "Attempting to dial");
+		let connection_id = ConnectionId::next();
+		info!(peer_id = %self.peer_id, %remote_peer_id, %remote_address, %connection_id, "Attempting to dial");
 
 		let protocol = extract_protocol_from_multiaddr(&remote_address)?;
 
@@ -44,12 +47,12 @@ impl Node {
 			Error::TransportNotFound(protocol)
 		})?;
 
-		let dial = transport
-			.dial(remote_address.clone())
-			.map_err(|e| Error::Transport(Box::new(e)))?
-			.boxed();
+		let dial = match transport.dial(remote_address.clone()) {
+			Ok(fut) => fut.map_err(TransportError::Other).boxed(),
+			Err(e) => futures::future::ready(Result::<(PeerId, StreamMuxerBox), _>::Err(e)).boxed(),
+		};
 
-		self.peer_manager.add_outgoing(dial, remote_address);
+		self.peer_manager.add_outgoing(dial, connection_id, remote_address);
 
 		Ok(())
 	}
@@ -103,8 +106,12 @@ impl Node {
 	}
 
 	#[inline]
-	fn handle_peer_event(&mut self, event: peer::manager::PeerEvent) {
-		info!(peer_id = %self.peer_id, ?event, "Peer event");
+	fn handle_peer_event(&mut self, _event: PeerEvent) {
+		match _event {
+			PeerEvent::ConnectionEstablished { .. } => {}
+			PeerEvent::PendingOutboundConnectionError(..) => {}
+			PeerEvent::PendingInboundConnectionError(..) => {}
+		}
 	}
 
 	#[inline]
@@ -127,8 +134,10 @@ impl Node {
 	where
 		TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
 	{
+		let connection_id = ConnectionId::next();
 		tracing::debug!(peer_id = %self.peer_id, %remote_addr, "Incoming connection");
-		self.peer_manager.add_incoming(upgrade, local_addr, remote_addr.clone());
+		self.peer_manager
+			.add_incoming(upgrade, connection_id, local_addr, remote_addr.clone());
 
 		let node_event = NodeEvent::IncomingConnection {
 			remote_address: remote_addr,

@@ -1,4 +1,5 @@
 mod builder;
+mod connection;
 mod error;
 mod event;
 mod executor;
