@@ -6,7 +6,7 @@ use futures::{
 	future::{Either, Future},
 };
 use multiaddr::PeerId;
-use rs_mojave_network_core::{connection::ConnectionOrigin, muxing::StreamMuxerBox, transport::TransportError};
+use rs_mojave_network_core::{muxing::StreamMuxerBox, transport::TransportError};
 
 use crate::{
 	connection::ConnectionId,

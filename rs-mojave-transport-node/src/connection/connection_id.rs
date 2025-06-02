@@ -106,7 +106,7 @@ mod tests {
 	#[test]
 	fn test_connection_id_clone() {
 		let id1 = ConnectionId::from(42);
-		let id2 = id1.clone();
+		let id2 = id1;
 
 		assert_eq!(id1, id2);
 		assert_eq!(format!("{:?}", id1), format!("{:?}", id2));

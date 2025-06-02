@@ -1,4 +1,3 @@
-use futures::future::BoxFuture;
 use futures::stream::FusedStream;
 use futures::{FutureExt, TryFutureExt};
 use multiaddr::{Multiaddr, PeerId, Protocol as MultiaddrProtocol};
