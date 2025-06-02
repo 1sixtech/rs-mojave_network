@@ -108,10 +108,26 @@ impl Node {
 	#[inline]
 	fn handle_peer_event(&mut self, _event: PeerEvent) {
 		match _event {
-			PeerEvent::ConnectionEstablished { .. } => {}
+			PeerEvent::ConnectionEstablished {
+				connection_id,
+				peer_id,
+				stream_muxer_box,
+			} => {}
 			PeerEvent::PendingOutboundConnectionError { .. } => {}
 			PeerEvent::PendingInboundConnectionError { .. } => {}
 		}
+	}
+
+	#[inline]
+	fn handle_peer_event_connection_established(
+		&mut self,
+		connection_id: ConnectionId,
+		peer_id: PeerId,
+		stream_muxer_box: StreamMuxerBox,
+	) {
+		tracing::debug!(peer_id = %self.peer_id, %peer_id, %connection_id, "Connection established");
+		let node_event = NodeEvent::ConnectionEstablished { connection_id, peer_id };
+		self.pending_events.push_back(node_event);
 	}
 
 	#[inline]
