@@ -109,8 +109,8 @@ impl Node {
 	fn handle_peer_event(&mut self, _event: PeerEvent) {
 		match _event {
 			PeerEvent::ConnectionEstablished { .. } => {}
-			PeerEvent::PendingOutboundConnectionError(..) => {}
-			PeerEvent::PendingInboundConnectionError(..) => {}
+			PeerEvent::PendingOutboundConnectionError { .. } => {}
+			PeerEvent::PendingInboundConnectionError { .. } => {}
 		}
 	}
 
@@ -135,7 +135,7 @@ impl Node {
 		TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
 	{
 		let connection_id = ConnectionId::next();
-		tracing::debug!(peer_id = %self.peer_id, %remote_addr, "Incoming connection");
+		tracing::debug!(peer_id = %self.peer_id, %remote_addr, %connection_id, "Incoming connection");
 		self.peer_manager
 			.add_incoming(upgrade, connection_id, local_addr, remote_addr.clone());
 

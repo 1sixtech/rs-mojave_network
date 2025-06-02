@@ -81,8 +81,13 @@ impl Manager {
 		span.follows_from(tracing::Span::current());
 
 		self.task_executor.spawn(
-			task::new_pending_inbound_peer(upgrage, abort_receiver, self.pending_peer_events_tx.clone())
-				.instrument(span),
+			task::new_pending_inbound_peer(
+				upgrage,
+				connection_id,
+				abort_receiver,
+				self.pending_peer_events_tx.clone(),
+			)
+			.instrument(span),
 		);
 
 		self.pending.insert(
@@ -107,7 +112,8 @@ impl Manager {
 		span.follows_from(tracing::Span::current());
 
 		self.task_executor.spawn(
-			task::new_pending_outgoing_peer(dial, abort_receiver, self.pending_peer_events_tx.clone()).instrument(span),
+			task::new_pending_outgoing_peer(dial, connection_id, abort_receiver, self.pending_peer_events_tx.clone())
+				.instrument(span),
 		);
 
 		self.pending.insert(
@@ -164,21 +170,29 @@ impl Manager {
 	#[inline]
 	fn handle_pending_peer_event(&mut self, event: task::PendingPeerEvent) -> Poll<PeerEvent> {
 		match event {
-			task::PendingPeerEvent::ConnectionEstablished { output } => {
-				self.handle_pending_peer_event_connection_established(output)
+			task::PendingPeerEvent::ConnectionEstablished { connection_id, output } => {
+				self.pending.remove(&connection_id);
+				self.handle_pending_peer_event_connection_established(connection_id, output)
 			}
-			task::PendingPeerEvent::PendingFailed { error } => self.handle_pending_peer_event_pending_failed(error),
+			task::PendingPeerEvent::PendingFailed { connection_id, error } => {
+				self.pending.remove(&connection_id);
+				// connection is lost at that point, so we remove it from the ConnectionId registry
+				ConnectionId::remove(connection_id);
+				self.handle_pending_peer_event_pending_failed(connection_id, error)
+			}
 		}
 	}
 
 	#[inline]
 	fn handle_pending_peer_event_connection_established(
 		&mut self,
+		connection_id: ConnectionId,
 		output: (PeerId, StreamMuxerBox),
 	) -> Poll<PeerEvent> {
 		let (peer_id, stream_muxer_box) = output;
 
 		Poll::Ready(PeerEvent::ConnectionEstablished {
+			connection_id,
 			peer_id,
 			stream_muxer_box,
 		})
@@ -187,21 +201,29 @@ impl Manager {
 	#[inline]
 	fn handle_pending_peer_event_pending_failed(
 		&mut self,
+		connection_id: ConnectionId,
 		error: Either<PendingOutboundConnectionError, PendingInboundConnectionError>,
 	) -> Poll<PeerEvent> {
 		match error {
-			Either::Left(error) => Poll::Ready(PeerEvent::PendingOutboundConnectionError(error)),
-			Either::Right(error) => Poll::Ready(PeerEvent::PendingInboundConnectionError(error)),
+			Either::Left(error) => Poll::Ready(PeerEvent::PendingOutboundConnectionError { connection_id, error }),
+			Either::Right(error) => Poll::Ready(PeerEvent::PendingInboundConnectionError { connection_id, error }),
 		}
 	}
 }
 
 #[derive(Debug)]
 pub(crate) enum PeerEvent {
-	PendingOutboundConnectionError(PendingOutboundConnectionError),
-	PendingInboundConnectionError(PendingInboundConnectionError),
+	PendingOutboundConnectionError {
+		connection_id: ConnectionId,
+		error: PendingOutboundConnectionError,
+	},
+	PendingInboundConnectionError {
+		connection_id: ConnectionId,
+		error: PendingInboundConnectionError,
+	},
 
 	ConnectionEstablished {
+		connection_id: ConnectionId,
 		peer_id: PeerId,
 		stream_muxer_box: StreamMuxerBox,
 	},

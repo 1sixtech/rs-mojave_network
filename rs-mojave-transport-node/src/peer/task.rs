@@ -8,13 +8,18 @@ use futures::{
 use multiaddr::PeerId;
 use rs_mojave_network_core::{muxing::StreamMuxerBox, transport::TransportError};
 
-use crate::peer::{PendingInboundConnectionError, PendingOutboundConnectionError};
+use crate::{
+	connection::ConnectionId,
+	peer::{PendingInboundConnectionError, PendingOutboundConnectionError},
+};
 
 pub(crate) enum PendingPeerEvent {
 	ConnectionEstablished {
+		connection_id: ConnectionId,
 		output: (PeerId, StreamMuxerBox),
 	},
 	PendingFailed {
+		connection_id: ConnectionId,
 		error: Either<PendingOutboundConnectionError, PendingInboundConnectionError>,
 	},
 }
@@ -23,6 +28,7 @@ pub(crate) enum PeerEvent {}
 
 pub(crate) async fn new_pending_outgoing_peer<TFut>(
 	future: TFut,
+	connection_id: ConnectionId,
 	abort_receiver: oneshot::Receiver<Infallible>,
 	mut events: mpsc::Sender<PendingPeerEvent>,
 ) where
@@ -33,17 +39,21 @@ pub(crate) async fn new_pending_outgoing_peer<TFut>(
 		Either::Left((Err(oneshot::Canceled), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
+					connection_id,
 					error: Either::Left(PendingOutboundConnectionError::Aborted),
 				})
 				.await;
 		}
 		Either::Left((Ok(v), _)) => rs_mojave_network_core::util::unreachable(v),
 		Either::Right((Ok(output), _)) => {
-			let _ = events.send(PendingPeerEvent::ConnectionEstablished { output }).await;
+			let _ = events
+				.send(PendingPeerEvent::ConnectionEstablished { connection_id, output })
+				.await;
 		}
 		Either::Right((Err(e), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
+					connection_id,
 					error: Either::Left(PendingOutboundConnectionError::Transport(e)),
 				})
 				.await;
@@ -53,6 +63,7 @@ pub(crate) async fn new_pending_outgoing_peer<TFut>(
 
 pub(crate) async fn new_pending_inbound_peer<TFut>(
 	future: TFut,
+	connection_id: ConnectionId,
 	abort_receiver: oneshot::Receiver<Infallible>,
 	mut events: mpsc::Sender<PendingPeerEvent>,
 ) where
@@ -63,17 +74,21 @@ pub(crate) async fn new_pending_inbound_peer<TFut>(
 		Either::Left((Err(oneshot::Canceled), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
+					connection_id,
 					error: Either::Right(PendingInboundConnectionError::Aborted),
 				})
 				.await;
 		}
 		Either::Left((Ok(v), _)) => rs_mojave_network_core::util::unreachable(v),
 		Either::Right((Ok(output), _)) => {
-			let _ = events.send(PendingPeerEvent::ConnectionEstablished { output }).await;
+			let _ = events
+				.send(PendingPeerEvent::ConnectionEstablished { connection_id, output })
+				.await;
 		}
 		Either::Right((Err(e), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
+					connection_id,
 					error: Either::Right(PendingInboundConnectionError::Transport(TransportError::Other(e))),
 				})
 				.await;
