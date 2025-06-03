@@ -17,6 +17,7 @@ tracing-subscriber.workspace = true
 anyhow.workspace = true
 slab.workspace = true
 parking_lot.workspace = true
+semver.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["full"] }

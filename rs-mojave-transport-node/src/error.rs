@@ -1,5 +1,5 @@
 use multiaddr::Multiaddr;
-use rs_mojave_network_core::{Protocol, transport::TransportError};
+use rs_mojave_network_core::transport::{Protocol, TransportError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

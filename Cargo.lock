@@ -2174,6 +2174,7 @@ dependencies = [
  "parking_lot",
  "rs-mojave-network-core",
  "rs-mojave-transport-webtransport",
+ "semver",
  "slab",
  "thiserror 2.0.12",
  "tokio",

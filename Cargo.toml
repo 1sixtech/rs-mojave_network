@@ -53,6 +53,8 @@ slab = { version = "0.4", default-features = false }
 
 parking_lot = { version = "0.12", default-features = false }
 
+semver = { version = "1.0", default-features = false }
+
 # Our workspace members
 rs-mojave-network-core = { path = "./rs-mojave-network-core" }
 rs-mojave-transport-node = { path = "./rs-mojave-transport-node" }
@@ -60,8 +62,8 @@ rs-mojave-transport-webtransport = { path = "./rs-mojave-transport-webtransport"
 
 
 [workspace.lints.rust.unexpected_cfgs]
-level = "deny"
 check-cfg = ['cfg(coverage)']
+level = "deny"
 
 [profile.wasm-dev]
 inherits = "dev"

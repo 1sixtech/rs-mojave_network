@@ -1,8 +1,8 @@
 use multiaddr::PeerId;
 use rs_mojave_network_core::{
-	Protocol, Transport,
+	Transport,
 	muxing::StreamMuxerBox,
-	transport::{self},
+	transport::{self, Protocol},
 };
 use std::collections::{HashMap, hash_map::Entry};
 

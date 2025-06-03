@@ -1,10 +1,8 @@
 pub mod connection;
 pub mod muxing;
-mod protocol;
 pub mod transport;
 
 pub use muxing::StreamMuxer;
-pub use protocol::*;
 pub use transport::Transport;
 
 pub mod util {

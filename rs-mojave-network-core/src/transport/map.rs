@@ -26,10 +26,7 @@ use std::{
 use futures::prelude::*;
 use multiaddr::Multiaddr;
 
-use crate::{
-	Protocol,
-	transport::{Transport, TransportError, TransportEvent},
-};
+use crate::transport::{Protocol, Transport, TransportError, TransportEvent};
 
 /// See `Transport::map`.
 #[derive(Debug, Copy, Clone)]

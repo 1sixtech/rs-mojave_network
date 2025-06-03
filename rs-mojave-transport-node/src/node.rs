@@ -4,7 +4,7 @@ use multiaddr::{Multiaddr, PeerId, Protocol as MultiaddrProtocol};
 use rs_mojave_network_core::connection::ConnectionOrigin;
 use rs_mojave_network_core::muxing::StreamMuxerBox;
 use rs_mojave_network_core::transport::{self, TransportError};
-use rs_mojave_network_core::{Protocol, Transport, transport::Boxed, transport::TransportEvent};
+use rs_mojave_network_core::{Transport, transport::Boxed, transport::Protocol, transport::TransportEvent};
 use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::pin::Pin;
