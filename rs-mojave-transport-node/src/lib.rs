@@ -6,8 +6,13 @@ mod executor;
 mod node;
 mod peer;
 mod protocol;
+mod stream_id;
 mod stream_protocol;
 
 pub use builder::Builder;
+pub use connection::*;
 pub use event::NodeEvent;
 pub use node::Node;
+pub use protocol::*;
+pub use stream_id::*;
+pub use stream_protocol::*;

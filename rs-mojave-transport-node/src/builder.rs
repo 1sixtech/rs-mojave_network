@@ -6,11 +6,14 @@ use rs_mojave_network_core::{
 };
 use std::collections::{HashMap, hash_map::Entry};
 
-use crate::{Node, error::BuilderError};
+use crate::{Node, PeerProtocolBis, PeerProtocolError, error::BuilderError};
 
 pub struct BuildableStep;
 
-pub struct ProtocolsState<TProtocols> {
+pub struct ProtocolsState<TProtocols>
+where
+	TProtocols: PeerProtocolBis,
+{
 	protocols: TProtocols,
 }
 
@@ -54,25 +57,62 @@ impl Builder<BuildingStep, BuildingState> {
 		}
 	}
 
-	pub fn with_protocols<TProtocols>(
+	pub fn with_protocols<P: PeerProtocolBis, R: TryIntoPeerProtocol<P> + PeerProtocolBis>(
 		self,
-		protocols: TProtocols,
-	) -> Builder<BuildableStep, ProtocolsState<TProtocols>> {
-		Builder {
+		constructor: impl FnOnce(&libp2p_identity::Keypair) -> R,
+	) -> Result<Builder<BuildableStep, ProtocolsState<P>>, R::Error> {
+		let protocols = constructor(&self.keypair).try_into_peer_protocol()?;
+
+		Ok(Builder {
 			keypair: self.keypair,
 			transports: self.transports,
 			_step: std::marker::PhantomData::<BuildableStep>,
 			state: ProtocolsState { protocols },
-		}
+		})
 	}
 }
 
-impl<TProtocols> Builder<BuildingState, ProtocolsState<TProtocols>> {
+impl<TProtocols> Builder<BuildingState, ProtocolsState<TProtocols>>
+where
+	TProtocols: PeerProtocolBis,
+{
 	pub fn build(self) -> Node<TProtocols> {
 		Node::new(
 			self.keypair.public().to_peer_id(),
 			self.state.protocols,
 			self.transports,
 		)
+	}
+}
+
+pub trait TryIntoPeerProtocol<P> {
+	type Error;
+
+	fn try_into_peer_protocol(self) -> Result<P, Self::Error>;
+}
+
+impl<P> TryIntoPeerProtocol<P> for P
+where
+	P: PeerProtocolBis,
+{
+	type Error = std::convert::Infallible;
+
+	fn try_into_peer_protocol(self) -> Result<P, Self::Error> {
+		Ok(self)
+	}
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("failed to build peer protocol: {0}")]
+pub struct PeerProtocolBuildError(Box<dyn std::error::Error + Send + Sync + 'static>);
+
+impl<P> TryIntoPeerProtocol<P> for Result<P, Box<dyn std::error::Error + Send + Sync>>
+where
+	P: PeerProtocolBis,
+{
+	type Error = PeerProtocolBuildError;
+
+	fn try_into_peer_protocol(self) -> Result<P, Self::Error> {
+		self.map_err(PeerProtocolBuildError)
 	}
 }

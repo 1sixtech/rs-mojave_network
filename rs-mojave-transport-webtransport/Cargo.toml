@@ -1,34 +1,34 @@
 [package]
+edition = "2024"
 name = "rs-mojave-transport-webtransport"
 version = "0.1.0"
-edition = "2024"
 
 [dependencies]
-moq-transfork.workspace = true
-thiserror.workspace = true
-rs-mojave-network-core.workspace = true
-multiaddr.workspace = true
 anyhow.workspace = true
+asynchronous-codec.workspace = true
+bytes.workspace = true
 futures.workspace = true
-tracing.workspace = true
-reqwest.workspace = true
-url.workspace = true
 hex.workspace = true
 libp2p-identity = { workspace = true, features = ["peerid"] }
+moq-transfork.workspace = true
+multiaddr.workspace = true
 pin-project.workspace = true
-bytes.workspace = true
-asynchronous-codec.workspace = true
+reqwest.workspace = true
+rs-mojave-network-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+url.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-if-watch = { workspace = true, features = ["tokio"] }
+axum = { workspace = true, features = ["tokio", "http2", "http1"] }
+bytes.workspace = true
+hyper-serve = { workspace = true, features = ["tls-rustls"] }
 if-addrs.workspace = true
+if-watch = { workspace = true, features = ["tokio"] }
+moq-native.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tower-http = { workspace = true, features = ["cors", "trace"] }
-hyper-serve = { workspace = true, features = ["tls-rustls"] }
-axum = { workspace = true, features = ["tokio", "http2", "http1"] }
-moq-native.workspace = true
 web-transport.workspace = true
-bytes.workspace = true
 
 [lints]
 workspace = true

@@ -46,6 +46,7 @@ command = ["cargo", "test"]
 need_stdout = true
 
 [jobs.nextest]
+analyzer = "nextest"
 command = [
   "cargo",
   "nextest",
@@ -55,7 +56,6 @@ command = [
   "final",
 ]
 need_stdout = true
-analyzer = "nextest"
 
 [jobs.doc]
 command = ["cargo", "doc", "--no-deps"]
@@ -66,19 +66,19 @@ need_stdout = false
 [jobs.doc-open]
 command = ["cargo", "doc", "--no-deps", "--open"]
 need_stdout = false
-on_success = "back"                               # so that we don't open the browser at each change
+on_success = "back" # so that we don't open the browser at each change
 
 # You can run your application and have the result displayed in bacon,
 # if it makes sense for this crate.
 [jobs.run]
+allow_warnings = true
+background = true
 command = [
   "cargo",
   "run",
   # put launch parameters for your program behind a `--` separator
 ]
 need_stdout = true
-allow_warnings = true
-background = true
 
 # Run your long-running application (eg server) and have the result displayed in bacon.
 # For programs that never stop (eg a server), `background` is set to false
@@ -91,14 +91,14 @@ background = true
 # A custom kill command such as the one suggested below is frequently needed to kill
 # long running programs (uncomment it if you need it)
 [jobs.run-long]
+allow_warnings = true
+background = false
 command = [
   "cargo",
   "run",
   # put launch parameters for your program behind a `--` separator
 ]
 need_stdout = true
-allow_warnings = true
-background = false
 on_change_strategy = "kill_then_restart"
 # kill = ["pkill", "-TERM", "-P"]'
 
@@ -107,9 +107,9 @@ on_change_strategy = "kill_then_restart"
 # Call it as
 #    bacon ex -- my-example
 [jobs.ex]
+allow_warnings = true
 command = ["cargo", "run", "--example"]
 need_stdout = true
-allow_warnings = true
 
 # You may define here keybindings that would be specific to
 # a project, for example a shortcut to launch a specific job.
@@ -120,6 +120,7 @@ allow_warnings = true
 c = "job:clippy-all" # comment this to have 'c' run clippy on only the default target
 
 [jobs.bacon-ls]
+analyzer = "cargo_json"
 command = [
   "cargo",
   "clippy",
@@ -130,7 +131,6 @@ command = [
   "--message-format",
   "json-diagnostic-rendered-ansi",
 ]
-analyzer = "cargo_json"
 need_stdout = true
 
 [exports.cargo-json-spans]

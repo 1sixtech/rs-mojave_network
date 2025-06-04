@@ -1,36 +1,38 @@
 [package]
+edition = "2024"
 name = "rs-mojave-transport-node"
 version = "0.1.0"
-edition = "2024"
 
 [dependencies]
+anyhow.workspace = true
+futures = { workspace = true, features = ["executor", "thread-pool"] }
+libp2p-identity = { workspace = true, features = ["peerid"] }
+multiaddr.workspace = true
+parking_lot.workspace = true
 rs-mojave-network-core.workspace = true
 rs-mojave-transport-webtransport.workspace = true
-multiaddr.workspace = true
-libp2p-identity = { workspace = true, features = ["peerid"] }
-wasm-bindgen-futures.workspace = true
+semver = { workspace = true, features = ["serde"] }
+serde.workspace = true
+slab.workspace = true
 thiserror.workspace = true
-futures = { workspace = true, features = ["executor", "thread-pool"] }
-web-time.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-anyhow.workspace = true
-slab.workspace = true
-parking_lot.workspace = true
-semver.workspace = true
+wasm-bindgen-futures.workspace = true
+web-time.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["full"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.libp2p-identity]
-workspace = true
 features = ["ed25519", "rand"]
+workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 moq-native.workspace = true
 
 [dev-dependencies]
 clap = { workspace = true, features = ["derive"] }
+serde_json = "1.0"
 
 [lints]
 workspace = true

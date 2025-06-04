@@ -14,23 +14,29 @@ use tracing::{error, info};
 use crate::connection::ConnectionId;
 use crate::error::Error;
 use crate::peer::manager::{self, PeerEvent};
-use crate::{NodeEvent, peer};
+use crate::{NodeEvent, PeerProtocolBis, peer, protocol};
 
 type TransportEventBoxed =
 	TransportEvent<<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade, io::Error>;
 
-pub struct Node<TProtocols> {
+pub struct Node<TProtocols>
+where
+	TProtocols: PeerProtocolBis,
+{
 	pub peer_id: PeerId,
 	transports: HashMap<Protocol, Boxed<(PeerId, StreamMuxerBox)>>,
-	peer_manager: peer::manager::Manager,
+	peer_manager: peer::manager::Manager<TProtocols>,
 	pending_events: VecDeque<NodeEvent>,
 
 	protocols: TProtocols,
 }
 
-impl<TProtocols> Unpin for Node<TProtocols> {}
+impl<TProtocols> Unpin for Node<TProtocols> where TProtocols: PeerProtocolBis {}
 
-impl<TProtocols> Node<TProtocols> {
+impl<TProtocols> Node<TProtocols>
+where
+	TProtocols: PeerProtocolBis,
+{
 	pub fn new(
 		peer_id: PeerId,
 		protocols: TProtocols,
@@ -130,9 +136,31 @@ impl<TProtocols> Node<TProtocols> {
 				stream_muxer_box,
 				established_in,
 			),
-			PeerEvent::PendingOutboundConnectionError { .. } => {}
-			PeerEvent::PendingInboundConnectionError { .. } => {}
+			PeerEvent::PendingOutboundConnectionError { connection_id, error } => {
+				self.handle_peer_event_pending_outbound_connection_error(connection_id, error)
+			}
+			PeerEvent::PendingInboundConnectionError { connection_id, error } => {
+				self.handle_peer_event_pending_inbound_connection_error(connection_id, error)
+			}
 		}
+	}
+
+	#[inline]
+	fn handle_peer_event_pending_outbound_connection_error(
+		&mut self,
+		connection_id: ConnectionId,
+		error: peer::PendingOutboundConnectionError,
+	) {
+		todo!()
+	}
+
+	#[inline]
+	fn handle_peer_event_pending_inbound_connection_error(
+		&mut self,
+		connection_id: ConnectionId,
+		error: peer::PendingInboundConnectionError,
+	) {
+		todo!()
 	}
 
 	#[inline]
@@ -145,6 +173,10 @@ impl<TProtocols> Node<TProtocols> {
 		stream_muxer_box: StreamMuxerBox,
 		established_in: web_time::Duration,
 	) {
+		let protocol = self.protocols;
+		self.peer_manager
+			.spawn_connection(connection_id, peer_id, connection_origin, stream_muxer_box, protocol);
+
 		let node_event = NodeEvent::ConnectionEstablished { connection_id, peer_id };
 		self.pending_events.push_back(node_event);
 	}
@@ -209,7 +241,10 @@ impl<TProtocols> Node<TProtocols> {
 	}
 }
 
-impl<TProtocols> futures::Stream for Node<TProtocols> {
+impl<TProtocols> futures::Stream for Node<TProtocols>
+where
+	TProtocols: PeerProtocolBis,
+{
 	type Item = NodeEvent;
 
 	fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -217,7 +252,10 @@ impl<TProtocols> futures::Stream for Node<TProtocols> {
 	}
 }
 
-impl<TProtocols> FusedStream for Node<TProtocols> {
+impl<TProtocols> FusedStream for Node<TProtocols>
+where
+	TProtocols: PeerProtocolBis,
+{
 	fn is_terminated(&self) -> bool {
 		false
 	}

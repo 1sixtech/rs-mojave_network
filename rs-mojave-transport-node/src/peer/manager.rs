@@ -20,7 +20,8 @@ use tracing::Instrument;
 use web_time::Instant;
 
 use crate::{
-	connection::ConnectionId,
+	PeerProtocolBis,
+	connection::{Connection, ConnectionId},
 	executor::{Executor, get_executor},
 	peer::{PendingInboundConnectionError, PendingOutboundConnectionError, task},
 };
@@ -40,19 +41,32 @@ impl TaskExecutor {
 	}
 }
 
-pub struct Manager {
+pub struct EstablishedConnection<TFromProtocol> {
+	connection_origin: ConnectionOrigin,
+
+	sender: mpsc::Sender<task::Command<TFromProtocol>>,
+}
+
+pub struct Manager<TProtocol>
+where
+	TProtocol: PeerProtocolBis,
+{
 	pending_peer_events_tx: mpsc::Sender<task::PendingPeerEvent>,
 	pending_peer_events_rx: mpsc::Receiver<task::PendingPeerEvent>,
 	new_peer_dropped_listeners: FuturesUnordered<oneshot::Receiver<StreamMuxerBox>>,
 	peer_events: SelectAll<mpsc::Receiver<task::PeerEvent>>,
 	task_executor: TaskExecutor,
 	pending: HashMap<ConnectionId, PendingPeer>,
+	established: HashMap<PeerId, HashMap<ConnectionId, EstablishedConnection<TProtocol::FromProtocol>>>,
 
 	// connections
 	no_established_connections_waker: Option<Waker>,
 }
 
-impl Manager {
+impl<TProtocol> Manager<TProtocol>
+where
+	TProtocol: PeerProtocolBis,
+{
 	pub fn new() -> Self {
 		let (pending_peer_events_tx, pending_peer_events_rx) = mpsc::channel(0);
 
@@ -63,6 +77,7 @@ impl Manager {
 			peer_events: Default::default(),
 			task_executor: TaskExecutor::new(),
 			pending: Default::default(),
+			established: Default::default(),
 			no_established_connections_waker: None,
 		}
 	}
@@ -126,6 +141,40 @@ impl Manager {
 				accepted_at: Instant::now(),
 			},
 		);
+	}
+
+	pub(crate) fn spawn_connection(
+		&mut self,
+		connection_id: ConnectionId,
+		peer_id: PeerId,
+		connection_origin: ConnectionOrigin,
+		connection: StreamMuxerBox,
+		protocol: TProtocol,
+	) {
+		let connections = self.established.entry(peer_id).or_default();
+
+		// TODO: replace with config vars
+		let (command_sender, command_receiver) = mpsc::channel(16);
+		// TODO: replace with config vars
+		let (event_sender, event_receiver) = mpsc::channel(16);
+
+		let established_connection = EstablishedConnection {
+			connection_origin,
+			sender: command_sender,
+		};
+		connections.insert(connection_id, established_connection);
+		let connection = Connection::new(protocol, connection);
+
+		let span = tracing::debug_span!(parent: tracing::Span::none(), "new_established_connection", %connection_id, peer = %peer_id);
+		span.follows_from(tracing::Span::current());
+
+		self.task_executor.spawn(task::new_established_connection(
+			connection_id,
+			peer_id,
+			connection,
+			command_receiver,
+			event_sender,
+		));
 	}
 
 	pub(crate) fn poll(&mut self, cx: &mut Context<'_>) -> Poll<PeerEvent> {

@@ -1,9 +1,9 @@
+use semver::Version;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
 	fmt::{Debug, Display},
 	str::FromStr,
 };
-
-use semver::Version;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParseStreamProtocolError {
@@ -72,6 +72,41 @@ impl Debug for StreamProtocol {
 impl Display for StreamProtocol {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}/{}@{}", self.namespace, self.name, self.version)
+	}
+}
+
+impl Serialize for StreamProtocol {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.collect_str(self)
+	}
+}
+
+impl<'de> Deserialize<'de> for StreamProtocol {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		struct StreamProtocolVisitor;
+
+		impl<'de> serde::de::Visitor<'de> for StreamProtocolVisitor {
+			type Value = StreamProtocol;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("a string in the format 'namespace/name@version'")
+			}
+
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				StreamProtocol::from_str(v).map_err(serde::de::Error::custom)
+			}
+		}
+
+		deserializer.deserialize_str(StreamProtocolVisitor)
 	}
 }
 
@@ -191,5 +226,79 @@ mod tests {
 		let cloned = protocol.clone();
 
 		assert_eq!(protocol, cloned);
+	}
+
+	#[test]
+	fn test_serialization() {
+		let version = Version::parse("1.2.3").unwrap();
+		let protocol = StreamProtocol::new("test", "protocol", version);
+
+		// Test JSON serialization
+		let serialized = serde_json::to_string(&protocol).unwrap();
+		assert_eq!(serialized, "\"test/protocol@1.2.3\"");
+
+		// Test with complex protocol
+		let complex_version = Version::parse("2.0.0-alpha.1+build.2023").unwrap();
+		let complex_protocol = StreamProtocol::new("org.example", "my-protocol", complex_version);
+		let serialized = serde_json::to_string(&complex_protocol).unwrap();
+		assert_eq!(serialized, "\"org.example/my-protocol@2.0.0-alpha.1+build.2023\"");
+	}
+
+	#[test]
+	fn test_deserialization() {
+		// Test basic deserialization
+		let json = "\"test/protocol@1.2.3\"";
+		let protocol: StreamProtocol = serde_json::from_str(json).unwrap();
+
+		assert_eq!(protocol.namespace, "test");
+		assert_eq!(protocol.name, "protocol");
+		assert_eq!(protocol.version, Version::parse("1.2.3").unwrap());
+
+		// Test with complex protocol
+		let complex_json = "\"org.example/my-protocol@2.0.0-alpha.1+build.2023\"";
+		let protocol: StreamProtocol = serde_json::from_str(complex_json).unwrap();
+
+		assert_eq!(protocol.namespace, "org.example");
+		assert_eq!(protocol.name, "my-protocol");
+		assert_eq!(protocol.version, Version::parse("2.0.0-alpha.1+build.2023").unwrap());
+	}
+
+	#[test]
+	fn test_invalid_deserialization() {
+		// Test missing @ symbol
+		let invalid_json = "\"test/protocol1.2.3\"";
+		let result: Result<StreamProtocol, _> = serde_json::from_str(invalid_json);
+		assert!(result.is_err());
+
+		// Test missing slash
+		let invalid_json = "\"testprotocol@1.2.3\"";
+		let result: Result<StreamProtocol, _> = serde_json::from_str(invalid_json);
+		assert!(result.is_err());
+
+		// Test invalid version
+		let invalid_json = "\"test/protocol@invalid\"";
+		let result: Result<StreamProtocol, _> = serde_json::from_str(invalid_json);
+		assert!(result.is_err());
+	}
+
+	#[test]
+	fn test_round_trip_serialization() {
+		// Test that a protocol can be serialized and then deserialized back to the original
+		let version = Version::parse("1.2.3").unwrap();
+		let original = StreamProtocol::new("test", "protocol", version);
+
+		let serialized = serde_json::to_string(&original).unwrap();
+		let deserialized: StreamProtocol = serde_json::from_str(&serialized).unwrap();
+
+		assert_eq!(original, deserialized);
+
+		// Test with complex protocol
+		let complex_version = Version::parse("2.0.0-alpha.1+build.2023").unwrap();
+		let original = StreamProtocol::new("org.example", "my-protocol", complex_version);
+
+		let serialized = serde_json::to_string(&original).unwrap();
+		let deserialized: StreamProtocol = serde_json::from_str(&serialized).unwrap();
+
+		assert_eq!(original, deserialized);
 	}
 }

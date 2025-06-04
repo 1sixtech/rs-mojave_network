@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "rs-mojave-network-core",
+  "rs-mojave-protocol-ping",
   "rs-mojave-transport-node",
   "rs-mojave-transport-webtransport",
 ]
@@ -55,8 +56,13 @@ parking_lot = { version = "0.12", default-features = false }
 
 semver = { version = "1.0", default-features = false }
 
+serde = { version = "1.0", default-features = false }
+
+rand = { version = "0.9", default-features = false }
+
 # Our workspace members
 rs-mojave-network-core = { path = "./rs-mojave-network-core" }
+rs-mojave-protocol-ping = { path = "./rs-mojave-protocol-ping" }
 rs-mojave-transport-node = { path = "./rs-mojave-transport-node" }
 rs-mojave-transport-webtransport = { path = "./rs-mojave-transport-webtransport" }
 
