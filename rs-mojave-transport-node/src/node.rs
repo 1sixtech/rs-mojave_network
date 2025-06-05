@@ -22,7 +22,10 @@ pub struct Node {
 }
 
 impl Node {
-	pub fn new(peer_id: PeerId, transports: HashMap<Protocol, Boxed<(PeerId, StreamMuxerBox)>>) -> Self {
+	pub fn new(
+		peer_id: PeerId,
+		transports: HashMap<Protocol, Boxed<(PeerId, StreamMuxerBox)>>,
+	) -> Self {
 		Self {
 			peer_id,
 			transports,
@@ -31,7 +34,11 @@ impl Node {
 		}
 	}
 
-	pub async fn dial(&mut self, remote_peer_id: PeerId, remote_address: Multiaddr) -> Result<(), Error> {
+	pub async fn dial(
+		&mut self,
+		remote_peer_id: PeerId,
+		remote_address: Multiaddr,
+	) -> Result<(), Error> {
 		info!(peer_id = %self.peer_id, %remote_peer_id, %remote_address, "Attempting to dial");
 
 		let protocol = extract_protocol_from_multiaddr(&remote_address)?;
@@ -105,7 +112,10 @@ impl Node {
 
 	fn handle_transport_event(
 		&mut self,
-		event: TransportEvent<<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade, io::Error>,
+		event: TransportEvent<
+			<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade,
+			io::Error,
+		>,
 	) {
 		match event {
 			TransportEvent::Incoming {
@@ -113,7 +123,8 @@ impl Node {
 				local_addr,
 				upgrade,
 			} => {
-				self.peer_manager.add_incoming(upgrade, local_addr, remote_addr);
+				self.peer_manager
+					.add_incoming(upgrade, local_addr, remote_addr);
 			}
 			TransportEvent::ListenAddress { address } => {
 				info!(peer_id = %self.peer_id, %address, "Listening on");
@@ -151,9 +162,9 @@ fn extract_protocol_from_multiaddr(address: &Multiaddr) -> Result<Protocol, Erro
 
 	for component in components {
 		if component == MultiaddrProtocol::WebTransport {
-  				p2p_protocol = Some(Protocol::WebTransport);
-  				break;
-  			}
+			p2p_protocol = Some(Protocol::WebTransport);
+			break;
+		}
 	}
 	p2p_protocol.ok_or_else(|| Error::NoProtocolsInMultiaddr(address.clone()))
 }

@@ -39,12 +39,16 @@ pub(crate) async fn new_pending_outgoing_peer<TFut>(
 		}
 		Either::Left((Ok(v), _)) => rs_mojave_network_core::util::unreachable(v),
 		Either::Right((Ok(output), _)) => {
-			let _ = events.send(PendingPeerEvent::ConnectionEstablished { output }).await;
+			let _ = events
+				.send(PendingPeerEvent::ConnectionEstablished { output })
+				.await;
 		}
 		Either::Right((Err(e), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
-					error: Either::Left(PendingOutboundConnectionError::Transport(TransportError::Other(e))),
+					error: Either::Left(PendingOutboundConnectionError::Transport(
+						TransportError::Other(e),
+					)),
 				})
 				.await;
 		}
@@ -69,12 +73,16 @@ pub(crate) async fn new_pending_inbound_peer<TFut>(
 		}
 		Either::Left((Ok(v), _)) => rs_mojave_network_core::util::unreachable(v),
 		Either::Right((Ok(output), _)) => {
-			let _ = events.send(PendingPeerEvent::ConnectionEstablished { output }).await;
+			let _ = events
+				.send(PendingPeerEvent::ConnectionEstablished { output })
+				.await;
 		}
 		Either::Right((Err(e), _)) => {
 			let _ = events
 				.send(PendingPeerEvent::PendingFailed {
-					error: Either::Right(PendingInboundConnectionError::Transport(TransportError::Other(e))),
+					error: Either::Right(PendingInboundConnectionError::Transport(
+						TransportError::Other(e),
+					)),
 				})
 				.await;
 		}

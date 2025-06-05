@@ -80,7 +80,10 @@ where
 		})
 	}
 
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<TransportEvent<Self::ListenerUpgrade, Self::Error>> {
+	fn poll(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+	) -> Poll<TransportEvent<Self::ListenerUpgrade, Self::Error>> {
 		let this = self.project();
 		match this.transport.poll(cx) {
 			Poll::Ready(TransportEvent::Incoming {

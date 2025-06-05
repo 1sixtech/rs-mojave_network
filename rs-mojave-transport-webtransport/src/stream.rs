@@ -13,7 +13,10 @@ pub struct Stream {
 }
 
 impl Stream {
-	pub fn new(send_stream: web_transport::SendStream, recv_stream: web_transport::RecvStream) -> Self {
+	pub fn new(
+		send_stream: web_transport::SendStream,
+		recv_stream: web_transport::RecvStream,
+	) -> Self {
 		Self {
 			send_stream,
 			recv_stream,
@@ -43,7 +46,11 @@ impl rs_mojave_network_core::Stream for Stream {
 }
 
 impl AsyncWrite for Stream {
-	fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+	fn poll_write(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &[u8],
+	) -> Poll<io::Result<usize>> {
 		let len = buf.len();
 		let fut = self.get_mut().send_stream.write(buf);
 		let mut fut = Box::pin(fut);
@@ -67,7 +74,11 @@ impl AsyncWrite for Stream {
 }
 
 impl AsyncRead for Stream {
-	fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+	fn poll_read(
+		mut self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &mut [u8],
+	) -> Poll<io::Result<usize>> {
 		if let Some(bytes) = &mut self.read_buf {
 			let len = buf.len();
 			buf[..len].copy_from_slice(&bytes[..len]);

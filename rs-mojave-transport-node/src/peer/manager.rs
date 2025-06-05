@@ -62,8 +62,12 @@ impl Manager {
 		}
 	}
 
-	pub(crate) fn add_incoming<TFut>(&mut self, fut: TFut, local_addr: Multiaddr, remote_addr: Multiaddr)
-	where
+	pub(crate) fn add_incoming<TFut>(
+		&mut self,
+		fut: TFut,
+		local_addr: Multiaddr,
+		remote_addr: Multiaddr,
+	) where
 		TFut: Future<Output = Result<(PeerId, StreamMuxerBox), std::io::Error>> + Send + 'static,
 	{
 		let (abort_notifier, abort_receiver) = oneshot::channel();
@@ -72,7 +76,12 @@ impl Manager {
 		span.follows_from(tracing::Span::current());
 
 		self.task_executor.spawn(
-			task::new_pending_inbound_peer(fut, abort_receiver, self.pending_peer_events_tx.clone()).instrument(span),
+			task::new_pending_inbound_peer(
+				fut,
+				abort_receiver,
+				self.pending_peer_events_tx.clone(),
+			)
+			.instrument(span),
 		);
 
 		self.pending.insert(
@@ -90,12 +99,16 @@ impl Manager {
 	{
 		let (abort_notifier, abort_receiver) = oneshot::channel();
 
-		let span =
-			tracing::debug_span!(parent: tracing::Span::none(), "new_outgoing_connection", remote_addr = %remote_addr);
+		let span = tracing::debug_span!(parent: tracing::Span::none(), "new_outgoing_connection", remote_addr = %remote_addr);
 		span.follows_from(tracing::Span::current());
 
 		self.task_executor.spawn(
-			task::new_pending_outgoing_peer(fut, abort_receiver, self.pending_peer_events_tx.clone()).instrument(span),
+			task::new_pending_outgoing_peer(
+				fut,
+				abort_receiver,
+				self.pending_peer_events_tx.clone(),
+			)
+			.instrument(span),
 		);
 
 		self.pending.insert(
@@ -155,7 +168,9 @@ impl Manager {
 			task::PendingPeerEvent::ConnectionEstablished { output } => {
 				self.handle_pending_peer_event_connection_established(output)
 			}
-			task::PendingPeerEvent::PendingFailed { error } => self.handle_pending_peer_event_pending_failed(error),
+			task::PendingPeerEvent::PendingFailed { error } => {
+				self.handle_pending_peer_event_pending_failed(error)
+			}
 		}
 	}
 
