@@ -8,6 +8,8 @@ use asynchronous_codec::{Framed, LengthCodec};
 use bytes::{Buf, Bytes};
 use futures::{AsyncRead, AsyncWrite, FutureExt, Sink, Stream};
 use futures_timer::Delay;
+use pin_project::pin_project;
+use rs_mojave_network_core::muxing::SubstreamBox;
 use serde::{Deserialize, Serialize};
 
 use crate::{ProtocolHandler, StreamProtocol, protocol};
@@ -15,18 +17,23 @@ use crate::{ProtocolHandler, StreamProtocol, protocol};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamProtocols(pub Vec<StreamProtocol>);
 
+#[pin_project]
 pub struct NegotiatorOutboundStream<S> {
 	in_o_out: String,
 	protocols: StreamProtocols,
 	timeout: Delay,
-	io: Framed<S, LengthCodec>,
-	state: OutboundState,
+	state: OutboundState<S>,
 }
 
-enum OutboundState {
-	SendProtocol,
-	Flush,
+enum OutboundState<S> {
+	SendProtocol {
+		io: Framed<S, LengthCodec>,
+	},
+	Flush {
+		io: Framed<S, LengthCodec>,
+	},
 	RecvProtocol {
+		io: Framed<S, LengthCodec>,
 		received_protocols: Option<Vec<StreamProtocol>>,
 	},
 	Done,
@@ -42,20 +49,19 @@ where
 		NegotiatorOutboundStream {
 			in_o_out: "in".to_string(),
 			protocols,
-			io: framed,
 			timeout: Delay::new(Duration::from_secs(15)),
-			state: OutboundState::SendProtocol,
+			state: OutboundState::SendProtocol { io: framed },
 		}
 	}
 }
 
-impl<S> Unpin for NegotiatorOutboundStream<S> {}
+// impl<S> Unpin for NegotiatorOutboundStream<S> {}
 
 impl<S> Future for NegotiatorOutboundStream<S>
 where
 	S: AsyncWrite + AsyncRead + Unpin,
 {
-	type Output = Result<(), NegotiatorStreamError>;
+	type Output = Result<S, NegotiatorStreamError>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		match self.timeout.poll_unpin(cx) {
@@ -63,56 +69,62 @@ where
 			Poll::Pending => {}
 		}
 
+		let mut this = self.project();
+
 		loop {
-			match std::mem::replace(&mut self.state, OutboundState::Done) {
-				OutboundState::SendProtocol => {
-					match Pin::new(&mut self.io).poll_ready(cx) {
+			match std::mem::replace(this.state, OutboundState::Done) {
+				OutboundState::SendProtocol { mut io } => {
+					match Pin::new(&mut io).poll_ready(cx) {
 						Poll::Pending => {
-							self.state = OutboundState::SendProtocol;
+							*this.state = OutboundState::SendProtocol { io };
 							return Poll::Pending;
 						}
 						Poll::Ready(Ok(())) => {}
 						Poll::Ready(Err(e)) => return Poll::Ready(Err(NegotiatorStreamError::IoError(e))),
 					}
 
-					let protocols_json = serde_json::to_vec(&self.protocols).unwrap();
-					tracing::info!("Sending protocols: {:?} {}", protocols_json, self.in_o_out);
-					if let Err(err) = Pin::new(&mut self.io).start_send(protocols_json.into()) {
+					let protocols_json = serde_json::to_vec(&this.protocols).unwrap();
+					tracing::info!("Sending protocols: {:?} {}", protocols_json, this.in_o_out);
+					if let Err(err) = Pin::new(&mut io).start_send(protocols_json.into()) {
 						return Poll::Ready(Err(NegotiatorStreamError::IoError(err)));
 					}
 
-					self.state = OutboundState::Flush;
+					*this.state = OutboundState::Flush { io };
 				}
 
-				OutboundState::Flush => match Pin::new(&mut self.io).poll_flush(cx)? {
+				OutboundState::Flush { mut io } => match Pin::new(&mut io).poll_flush(cx)? {
 					Poll::Ready(()) => {
-						self.state = OutboundState::RecvProtocol {
+						*this.state = OutboundState::RecvProtocol {
+							io,
 							received_protocols: None,
 						}
 					}
 					Poll::Pending => {
-						self.state = OutboundState::Flush;
+						*this.state = OutboundState::Flush { io };
 						return Poll::Pending;
 					}
 				},
 
-				OutboundState::RecvProtocol { received_protocols } => {
-					tracing::info!("Receiving protocols {}", self.in_o_out);
-					let msg: Bytes = match Pin::new(&mut self.io).poll_next(cx) {
+				OutboundState::RecvProtocol {
+					mut io,
+					received_protocols,
+				} => {
+					tracing::info!("Receiving protocols {}", this.in_o_out);
+					let msg: Bytes = match Pin::new(&mut io).poll_next(cx) {
 						Poll::Pending => {
-							self.state = OutboundState::RecvProtocol { received_protocols };
+							*this.state = OutboundState::RecvProtocol { io, received_protocols };
 							return Poll::Pending;
 						}
 						Poll::Ready(None) => return Poll::Ready(Err(NegotiatorStreamError::NegotiationFailed)),
 						Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(NegotiatorStreamError::IoError(e))),
 						Poll::Ready(Some(Ok(msg))) => msg,
 					};
-					tracing::info!("Received protocols: {:?} {}", msg, self.in_o_out);
+					tracing::info!("Received protocols: {:?} {}", msg, this.in_o_out);
 
 					let received_protocols: Vec<StreamProtocol> = serde_json::from_slice(msg.as_ref()).unwrap();
 					tracing::info!("Received protocols: {:?}", received_protocols);
 
-					return Poll::Ready(Ok(()));
+					return Poll::Ready(Ok(io.into_inner()));
 				}
 
 				OutboundState::Done => panic!("State::poll called after completion"),
@@ -121,20 +133,24 @@ where
 	}
 }
 
+#[pin_project]
 pub struct NegotiatorInboundStream<S> {
 	in_o_out: String,
 	protocols: StreamProtocols,
 	timeout: Delay,
-	io: Framed<S, LengthCodec>,
-	state: InboundState,
+	state: InboundState<S>,
 }
 
-enum InboundState {
-	RecvProtocol,
+enum InboundState<S> {
+	RecvProtocol {
+		io: Framed<S, LengthCodec>,
+	},
 	SendProtocol {
+		io: Framed<S, LengthCodec>,
 		received_protocols: Option<Vec<StreamProtocol>>,
 	},
 	Flush {
+		io: Framed<S, LengthCodec>,
 		received_protocols: Option<Vec<StreamProtocol>>,
 	},
 	Done,
@@ -146,13 +162,11 @@ where
 {
 	pub(crate) fn new(protocols: StreamProtocols, stream: S) -> Self {
 		let framed = Framed::new(stream, LengthCodec);
-
 		NegotiatorInboundStream {
 			in_o_out: "in".to_string(),
 			protocols,
-			io: framed,
 			timeout: Delay::new(Duration::from_secs(15)),
-			state: InboundState::RecvProtocol,
+			state: InboundState::RecvProtocol { io: framed },
 		}
 	}
 }
@@ -172,13 +186,13 @@ pub enum NegotiatorStreamError {
 	InvalidProtocol,
 }
 
-impl<S> Unpin for NegotiatorInboundStream<S> {}
+// impl<S> Unpin for NegotiatorInboundStream<S> {}
 
 impl<S> Future for NegotiatorInboundStream<S>
 where
 	S: AsyncWrite + AsyncRead + Unpin,
 {
-	type Output = Result<(), NegotiatorStreamError>;
+	type Output = Result<S, NegotiatorStreamError>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		match self.timeout.poll_unpin(cx) {
@@ -186,59 +200,69 @@ where
 			Poll::Pending => {}
 		}
 
+		let mut this = self.project();
+
 		loop {
-			match std::mem::replace(&mut self.state, InboundState::Done) {
-				InboundState::RecvProtocol => {
-					tracing::info!("Receiving protocols {}", self.in_o_out);
-					let msg: Bytes = match Pin::new(&mut self.io).poll_next(cx) {
+			match std::mem::replace(this.state, InboundState::Done) {
+				InboundState::RecvProtocol { mut io } => {
+					tracing::info!("Receiving protocols {}", this.in_o_out);
+					let msg: Bytes = match Pin::new(&mut io).poll_next(cx) {
 						Poll::Pending => {
-							self.state = InboundState::RecvProtocol;
+							*this.state = InboundState::RecvProtocol { io };
 							return Poll::Pending;
 						}
 						Poll::Ready(None) => return Poll::Ready(Err(NegotiatorStreamError::NegotiationFailed)),
 						Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(NegotiatorStreamError::IoError(e))),
 						Poll::Ready(Some(Ok(msg))) => msg,
 					};
-					tracing::info!("Received protocols: {:?} {}", msg, self.in_o_out);
+					tracing::info!("Received protocols: {:?} {}", msg, this.in_o_out);
 
 					let received_protocols = serde_json::from_slice(msg.as_ref()).unwrap();
 
-					self.state = InboundState::SendProtocol {
+					*this.state = InboundState::SendProtocol {
+						io,
 						received_protocols: Some(received_protocols),
 					};
 				}
-				InboundState::SendProtocol { received_protocols } => {
-					match Pin::new(&mut self.io).poll_ready(cx) {
+				InboundState::SendProtocol {
+					mut io,
+					received_protocols,
+				} => {
+					match Pin::new(&mut io).poll_ready(cx) {
 						Poll::Pending => {
-							self.state = InboundState::SendProtocol { received_protocols };
+							*this.state = InboundState::SendProtocol { io, received_protocols };
 							return Poll::Pending;
 						}
 						Poll::Ready(Ok(())) => {}
 						Poll::Ready(Err(e)) => return Poll::Ready(Err(NegotiatorStreamError::IoError(e))),
 					}
 
-					let protocols_json = serde_json::to_vec(&self.protocols).unwrap();
-					tracing::info!("Sending protocols: {:?} {}", protocols_json, self.in_o_out);
-					if let Err(err) = Pin::new(&mut self.io).start_send(protocols_json.into()) {
+					let protocols_json = serde_json::to_vec(&this.protocols).unwrap();
+					tracing::info!("Sending protocols: {:?} {}", protocols_json, this.in_o_out);
+					if let Err(err) = Pin::new(&mut io).start_send(protocols_json.into()) {
 						return Poll::Ready(Err(NegotiatorStreamError::IoError(err)));
 					}
 
-					self.state = InboundState::Flush { received_protocols };
+					*this.state = InboundState::Flush { io, received_protocols };
 				}
-				InboundState::Flush { received_protocols } => {
-					tracing::info!("Flush {}", self.in_o_out);
-					match Pin::new(&mut self.io).poll_flush(cx) {
+				InboundState::Flush {
+					mut io,
+					received_protocols,
+				} => {
+					tracing::info!("Flush {}", this.in_o_out);
+					match Pin::new(&mut io).poll_flush(cx) {
 						Poll::Pending => {
-							self.state = InboundState::Flush { received_protocols };
+							*this.state = InboundState::Flush { io, received_protocols };
 							return Poll::Pending;
 						}
 						Poll::Ready(Ok(())) => match received_protocols {
 							Some(protocols) => {
 								tracing::debug!(protocols=?protocols, "received protocols");
-								return Poll::Ready(Ok(()));
+								let inner = io.into_inner();
+								return Poll::Ready(Ok(inner));
 							}
 							None => {
-								self.state = InboundState::RecvProtocol;
+								*this.state = InboundState::RecvProtocol { io };
 							}
 						},
 						Poll::Ready(Err(e)) => return Poll::Ready(Err(NegotiatorStreamError::IoError(e))),

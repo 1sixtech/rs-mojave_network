@@ -17,7 +17,7 @@ mod connection_id;
 mod negotiator_stream;
 
 use crate::{
-	ProtocolHandler,
+	ConnectionEvent, ProtocolHandler,
 	connection::negotiator_stream::{NegotiatorInboundStream, NegotiatorOutboundStream, StreamProtocols},
 };
 
@@ -166,13 +166,16 @@ where
 						self.futures_substream
 							.push(FutureSubstream::new(Duration::from_secs(10)));
 					}
-					crate::ProtocolHandlerEvent::NotifyProtocol(_) => todo!(),
+					crate::ProtocolHandlerEvent::NotifyProtocol(e) => {
+						return Poll::Ready(Ok(Event::Handler(e)));
+					}
 				},
 			}
 
 			match self.negotiating_out.poll_next_unpin(cx) {
-				Poll::Ready(Some(Ok(()))) => {
-					tracing::info!("negotiation completed");
+				Poll::Ready(Some(Ok(io))) => {
+					tracing::info!("negotiation outbound completed");
+					self.handler.on_connection_event(ConnectionEvent::NewOutboundStream(io));
 					continue;
 				}
 				Poll::Ready(Some(Err(_e))) => {
@@ -183,8 +186,10 @@ where
 			}
 
 			match self.negotiating_in.poll_next_unpin(cx) {
-				Poll::Ready(Some(Ok(()))) => {
-					tracing::info!("negotiation completed");
+				Poll::Ready(Some(Ok(io))) => {
+					tracing::info!("negotiation inbound completed");
+					self.handler.on_connection_event(ConnectionEvent::NewInboudStream(io));
+
 					continue;
 				}
 				Poll::Ready(Some(Err(_e))) => {

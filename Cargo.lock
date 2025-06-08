@@ -2197,6 +2197,7 @@ dependencies = [
  "moq-native",
  "multiaddr",
  "parking_lot",
+ "pin-project",
  "rs-mojave-network-core",
  "rs-mojave-protocol-ping",
  "rs-mojave-transport-webtransport",

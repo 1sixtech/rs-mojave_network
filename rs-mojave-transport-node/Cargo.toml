@@ -12,6 +12,7 @@ futures-timer.workspace = true
 libp2p-identity = { workspace = true, features = ["peerid"] }
 multiaddr.workspace = true
 parking_lot.workspace = true
+pin-project.workspace = true
 rs-mojave-network-core.workspace = true
 rs-mojave-transport-webtransport.workspace = true
 semver = { workspace = true, features = ["serde"] }

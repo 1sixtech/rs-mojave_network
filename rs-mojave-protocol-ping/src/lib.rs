@@ -6,9 +6,10 @@ use futures::{
 };
 use futures_timer::Delay;
 use multiaddr::PeerId;
+use rs_mojave_network_core::muxing::SubstreamBox;
 use rs_mojave_transport_node::{
-	Action, ConnectionId, FromNode, PeerProtocolBis, PeerProtocolError, ProtocolHandler, ProtocolHandlerEvent, Stream,
-	StreamId, StreamProtocol, ToNode,
+	Action, AsyncReadWrite, ConnectionId, FromNode, PeerProtocolBis, PeerProtocolError, ProtocolHandler,
+	ProtocolHandlerEvent, Stream, StreamId, StreamProtocol, ToNode,
 };
 
 mod config;
@@ -61,10 +62,13 @@ enum State {
 	Active,
 }
 
-type PingFuture = BoxFuture<'static, Result<(Stream, Duration), Error>>;
+type PingFuture = BoxFuture<'static, Result<(Box<dyn AsyncReadWrite + Send + Unpin>, Duration), Error>>;
 
 /// A wrapper around [`protocol::send_ping`] that enforces a time out.
-async fn send_ping(stream: Stream, timeout: Duration) -> Result<(Stream, Duration), Error> {
+async fn send_ping(
+	stream: Box<dyn AsyncReadWrite + Send + Unpin>,
+	timeout: Duration,
+) -> Result<(Box<dyn AsyncReadWrite + Send + Unpin>, Duration), Error> {
 	let ping = crate::protocol::send_ping(stream);
 	futures::pin_mut!(ping);
 
@@ -75,7 +79,7 @@ async fn send_ping(stream: Stream, timeout: Duration) -> Result<(Stream, Duratio
 	}
 }
 
-type PongFuture = BoxFuture<'static, Result<Stream, io::Error>>;
+type PongFuture = BoxFuture<'static, Result<Box<dyn AsyncReadWrite + Send + Unpin>, io::Error>>;
 pub struct PingHandler {
 	state: State,
 	interval: Delay,
@@ -89,7 +93,7 @@ enum OutboundState {
 	/// A new substream is being negotiated for the ping protocol.
 	OpenStream,
 	/// The substream is idle, waiting to send the next ping.
-	Idle(Stream),
+	Idle(Box<dyn AsyncReadWrite + Send + Unpin>),
 	/// A ping is being sent and the response awaited.
 	Ping(PingFuture),
 }
@@ -123,6 +127,19 @@ impl ProtocolHandler for PingHandler {
 
 	fn on_protocol_event(&mut self, event: Self::FromProtocol) {
 		todo!()
+	}
+
+	fn on_connection_event(&mut self, event: rs_mojave_transport_node::ConnectionEvent) {
+		match event {
+			rs_mojave_transport_node::ConnectionEvent::NewInboudStream(substream_box) => {
+				self.pong = Some(protocol::recv_ping(substream_box).boxed());
+			}
+			rs_mojave_transport_node::ConnectionEvent::NewOutboundStream(substream_box) => {
+				self.outbound = Some(OutboundState::Ping(
+					send_ping(substream_box, Duration::from_secs(5)).boxed(),
+				));
+			}
+		}
 	}
 
 	fn poll(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<ProtocolHandlerEvent<Self::ToProtocol>> {
@@ -172,7 +189,7 @@ impl ProtocolHandler for PingHandler {
 							}
 							Err(e) => {
 								self.interval.reset(Duration::from_secs(1));
-								self.pending_errors.push_front(e);
+								// self.pending_errors.push_front(e);
 							}
 						},
 						Poll::Pending => {

@@ -4,9 +4,10 @@ use std::{
 };
 
 use multiaddr::{Multiaddr, PeerId};
+use rs_mojave_network_core::muxing::SubstreamBox;
 use thiserror::Error;
 
-use crate::{ConnectionError, StreamProtocol, connection::ConnectionId, stream_id::StreamId};
+use crate::{AsyncReadWrite, ConnectionError, StreamProtocol, connection::ConnectionId, stream_id::StreamId};
 
 mod to_node;
 
@@ -29,6 +30,11 @@ pub enum ProtocolHandlerEvent<TEvent> {
 	NotifyProtocol(TEvent),
 }
 
+pub enum ConnectionEvent {
+	NewInboudStream(Box<dyn AsyncReadWrite + Send + Unpin>),
+	NewOutboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
+}
+
 pub trait ProtocolHandler: Send + 'static {
 	type FromProtocol: fmt::Debug + Send + 'static;
 	type ToProtocol: fmt::Debug + Send + 'static;
@@ -36,7 +42,9 @@ pub trait ProtocolHandler: Send + 'static {
 
 	fn protocol_info(&self) -> Self::ProtocolInfoIter;
 
-	/// Call when we receive an event of the protocol
+	fn on_connection_event(&mut self, event: ConnectionEvent);
+
+	/// Call when we receive an event in the stream concerning this protocol of the protocol
 	fn on_protocol_event(&mut self, event: Self::FromProtocol);
 
 	/// Poll close
