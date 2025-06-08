@@ -78,7 +78,7 @@ mod tests {
 	#[test]
 	fn test_connection_id_creation() {
 		let id = ConnectionId::from(42usize);
-		assert_eq!(format!("{:?}", id), "ConnectionId(42)");
+		assert_eq!(format!("{id:?}"), "ConnectionId(42)");
 	}
 
 	#[test]
@@ -89,7 +89,7 @@ mod tests {
 
 		assert_eq!(from_usize, from_u32);
 		assert_eq!(from_u32, from_u64);
-		assert_eq!(format!("{:?}", from_usize), "ConnectionId(123)");
+		assert_eq!(format!("{from_usize:?}"), "ConnectionId(123)");
 	}
 
 	#[test]
@@ -109,7 +109,7 @@ mod tests {
 		let id2 = id1;
 
 		assert_eq!(id1, id2);
-		assert_eq!(format!("{:?}", id1), format!("{:?}", id2));
+		assert_eq!(format!("{id1:?}"), format!("{:?}", id2));
 	}
 
 	#[test]
@@ -119,8 +119,8 @@ mod tests {
 
 		assert_eq!(id1, id2);
 		// Both should still be usable after copy
-		assert_eq!(format!("{:?}", id1), "ConnectionId(42)");
-		assert_eq!(format!("{:?}", id2), "ConnectionId(42)");
+		assert_eq!(format!("{id1:?}"), "ConnectionId(42)");
+		assert_eq!(format!("{id2:?}"), "ConnectionId(42)");
 	}
 
 	#[test]
@@ -167,9 +167,9 @@ mod tests {
 		let id_max = ConnectionId::from(usize::MAX);
 		let id_random = ConnectionId::from(12345);
 
-		assert_eq!(format!("{:?}", id_zero), "ConnectionId(0)");
-		assert_eq!(format!("{:?}", id_max), format!("ConnectionId({})", usize::MAX));
-		assert_eq!(format!("{:?}", id_random), "ConnectionId(12345)");
+		assert_eq!(format!("{id_zero:?}"), "ConnectionId(0)");
+		assert_eq!(format!("{id_max:?}"), format!("ConnectionId({})", usize::MAX));
+		assert_eq!(format!("{id_random:?}"), "ConnectionId(12345)");
 	}
 
 	#[test]
@@ -177,8 +177,8 @@ mod tests {
 		let id_zero = ConnectionId::from(0);
 		let id_max = ConnectionId::from(usize::MAX);
 
-		assert_eq!(format!("{:?}", id_zero), "ConnectionId(0)");
-		assert_eq!(format!("{:?}", id_max), format!("ConnectionId({})", usize::MAX));
+		assert_eq!(format!("{id_zero:?}"), "ConnectionId(0)");
+		assert_eq!(format!("{id_max:?}"), format!("ConnectionId({})", usize::MAX));
 		assert_ne!(id_zero, id_max);
 	}
 
@@ -194,9 +194,9 @@ mod tests {
 		assert_ne!(id1, id3);
 
 		// IDs should be valid debug representations
-		assert!(format!("{:?}", id1).starts_with("ConnectionId("));
-		assert!(format!("{:?}", id2).starts_with("ConnectionId("));
-		assert!(format!("{:?}", id3).starts_with("ConnectionId("));
+		assert!(format!("{id1:?}").starts_with("ConnectionId("));
+		assert!(format!("{id2:?}").starts_with("ConnectionId("));
+		assert!(format!("{id3:?}").starts_with("ConnectionId("));
 	}
 
 	#[test]
@@ -251,8 +251,8 @@ mod tests {
 		let id3 = ConnectionId::next();
 
 		// They should be valid IDs
-		assert!(format!("{:?}", id2).starts_with("ConnectionId("));
-		assert!(format!("{:?}", id3).starts_with("ConnectionId("));
+		assert!(format!("{id2:?}").starts_with("ConnectionId("));
+		assert!(format!("{id3:?}").starts_with("ConnectionId("));
 		assert_ne!(id2, id3);
 
 		// Clean up
@@ -274,7 +274,7 @@ mod tests {
 		for (i, &id1) in ids.iter().enumerate() {
 			for (j, &id2) in ids.iter().enumerate() {
 				if i != j {
-					assert_ne!(id1, id2, "IDs at positions {} and {} should be different", i, j);
+					assert_ne!(id1, id2, "IDs at positions {i} and {j} should be different");
 				}
 			}
 		}
@@ -313,7 +313,7 @@ mod tests {
 	fn test_connection_id_zero_value() {
 		// Test that we can handle a ConnectionId with value 0
 		let zero_id = ConnectionId::from(0usize);
-		assert_eq!(format!("{:?}", zero_id), "ConnectionId(0)");
+		assert_eq!(format!("{zero_id:?}"), "ConnectionId(0)");
 	}
 
 	#[test]

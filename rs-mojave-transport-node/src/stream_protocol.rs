@@ -21,6 +21,7 @@ pub enum ParseStreamProtocolError {
 /// versioned protocol negotiation and identification.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct StreamProtocol {
+	pub full: String,
 	pub namespace: String,
 	pub name: String,
 	pub version: Version,
@@ -35,10 +36,12 @@ impl StreamProtocol {
 	/// * `name` - The name of the protocol.
 	/// * `version` - The version of the protocol.
 	pub fn new(namespace: &str, name: &str, version: Version) -> Self {
+		let full = format!("{namespace}/{name}@{version}");
 		Self {
 			namespace: namespace.to_owned(),
 			name: name.to_owned(),
 			version,
+			full,
 		}
 	}
 }
@@ -59,6 +62,7 @@ impl FromStr for StreamProtocol {
 			namespace: namespace.to_owned(),
 			name: name.to_owned(),
 			version,
+			full: s.to_owned(),
 		})
 	}
 }
@@ -72,6 +76,12 @@ impl Debug for StreamProtocol {
 impl Display for StreamProtocol {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}/{}@{}", self.namespace, self.name, self.version)
+	}
+}
+
+impl AsRef<str> for StreamProtocol {
+	fn as_ref(&self) -> &str {
+		&self.full
 	}
 }
 

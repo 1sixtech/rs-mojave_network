@@ -6,7 +6,7 @@ use rs_mojave_network_core::{
 };
 use std::collections::{HashMap, hash_map::Entry};
 
-use crate::{Node, PeerProtocolBis, PeerProtocolError, error::BuilderError};
+use crate::{Node, PeerProtocolBis, error::BuilderError};
 
 pub struct BuildableStep;
 
@@ -57,7 +57,7 @@ impl Builder<BuildingStep, BuildingState> {
 		}
 	}
 
-	pub fn with_protocols<P: PeerProtocolBis, R: TryIntoPeerProtocol<P> + PeerProtocolBis>(
+	pub fn with_protocol<P: PeerProtocolBis, R: TryIntoPeerProtocol<P> + PeerProtocolBis>(
 		self,
 		constructor: impl FnOnce(&libp2p_identity::Keypair) -> R,
 	) -> Result<Builder<BuildableStep, ProtocolsState<P>>, R::Error> {
@@ -72,7 +72,7 @@ impl Builder<BuildingStep, BuildingState> {
 	}
 }
 
-impl<TProtocols> Builder<BuildingState, ProtocolsState<TProtocols>>
+impl<TProtocols> Builder<BuildableStep, ProtocolsState<TProtocols>>
 where
 	TProtocols: PeerProtocolBis,
 {

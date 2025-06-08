@@ -1,7 +1,4 @@
-use std::{
-	convert::Infallible,
-	pin::{Pin, pin},
-};
+use std::{convert::Infallible, pin::Pin};
 
 use futures::{
 	SinkExt, StreamExt,
@@ -12,7 +9,7 @@ use multiaddr::{Multiaddr, PeerId};
 use rs_mojave_network_core::{muxing::StreamMuxerBox, transport::TransportError};
 
 use crate::{
-	ConnectionError, PeerProtocolBis,
+	ConnectionError, PeerProtocolBis, ProtocolHandler,
 	connection::{self, ConnectionId},
 	peer::{PendingInboundConnectionError, PendingOutboundConnectionError},
 };
@@ -126,14 +123,14 @@ pub enum EstablishedConnectionEvent<ToProtocol> {
 }
 
 /// Will poll the command receiver and the given connection and will forward them to the event_sender.
-pub async fn new_established_connection<TProtocol>(
+pub async fn new_established_connection<THandler>(
 	connection_id: ConnectionId,
 	peer_id: PeerId,
-	mut connection: crate::connection::Connection<TProtocol>,
-	mut command_receiver: mpsc::Receiver<Command<TProtocol::FromProtocol>>,
-	mut event_sender: mpsc::Sender<EstablishedConnectionEvent<TProtocol::ToProtocol>>,
+	mut connection: crate::connection::Connection<THandler>,
+	mut command_receiver: mpsc::Receiver<Command<THandler::FromProtocol>>,
+	mut event_sender: mpsc::Sender<EstablishedConnectionEvent<THandler::ToProtocol>>,
 ) where
-	TProtocol: PeerProtocolBis,
+	THandler: ProtocolHandler,
 {
 	loop {
 		match futures::future::select(
@@ -146,7 +143,8 @@ pub async fn new_established_connection<TProtocol>(
 			Either::Left((Some(cmd), _)) => match cmd {
 				Command::NotifyProtocol(protocol_event) => connection.on_protocol_event(protocol_event),
 				Command::Close => {
-					handle_close(connection_id, peer_id, connection, command_receiver, event_sender, None);
+					let _ =
+						handle_close(connection_id, peer_id, connection, command_receiver, event_sender, None).await;
 					return;
 				}
 			},
@@ -170,14 +168,15 @@ pub async fn new_established_connection<TProtocol>(
 						.await;
 				}
 				Err(error) => {
-					handle_close(
+					let _ = handle_close(
 						connection_id,
 						peer_id,
 						connection,
 						command_receiver,
 						event_sender,
 						Some(error),
-					);
+					)
+					.await;
 					return;
 				}
 			},
@@ -185,20 +184,20 @@ pub async fn new_established_connection<TProtocol>(
 	}
 }
 
-pub async fn handle_close<TProtocol>(
+pub async fn handle_close<THandler>(
 	connection_id: ConnectionId,
 	peer_id: PeerId,
-	connection: crate::connection::Connection<TProtocol>,
-	mut command_receiver: mpsc::Receiver<Command<TProtocol::FromProtocol>>,
-	mut event_sender: mpsc::Sender<EstablishedConnectionEvent<TProtocol::ToProtocol>>,
+	connection: crate::connection::Connection<THandler>,
+	mut command_receiver: mpsc::Receiver<Command<THandler::FromProtocol>>,
+	mut event_sender: mpsc::Sender<EstablishedConnectionEvent<THandler::ToProtocol>>,
 	error: Option<ConnectionError>,
 ) where
-	TProtocol: PeerProtocolBis,
+	THandler: ProtocolHandler,
 {
 	command_receiver.close();
 	let (remaining_events, closing_muxer) = connection.close();
 
-	event_sender
+	let _ = event_sender
 		.send_all(&mut remaining_events.map(|event| {
 			Ok(EstablishedConnectionEvent::Notify {
 				connection_id,
@@ -214,7 +213,7 @@ pub async fn handle_close<TProtocol>(
 		error
 	};
 
-	event_sender
+	let _ = event_sender
 		.send(EstablishedConnectionEvent::Closed {
 			connection_id,
 			peer_id,

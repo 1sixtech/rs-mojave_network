@@ -14,21 +14,21 @@ use tracing::{error, info};
 use crate::connection::ConnectionId;
 use crate::error::Error;
 use crate::peer::manager::{self, PeerEvent};
-use crate::{NodeEvent, PeerProtocolBis, peer, protocol};
+use crate::{NodeEvent, PeerProtocolBis, peer};
 
 type TransportEventBoxed =
 	TransportEvent<<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade, io::Error>;
 
-pub struct Node<TProtocols>
+pub struct Node<TProtocol>
 where
-	TProtocols: PeerProtocolBis,
+	TProtocol: PeerProtocolBis,
 {
 	pub peer_id: PeerId,
 	transports: HashMap<Protocol, Boxed<(PeerId, StreamMuxerBox)>>,
-	peer_manager: peer::manager::Manager<TProtocols>,
+	peer_manager: peer::manager::Manager<TProtocol::Handler>,
 	pending_events: VecDeque<NodeEvent>,
 
-	protocols: TProtocols,
+	protocol: TProtocol,
 }
 
 impl<TProtocols> Unpin for Node<TProtocols> where TProtocols: PeerProtocolBis {}
@@ -45,7 +45,7 @@ where
 		Self {
 			peer_id,
 			transports,
-			protocols,
+			protocol: protocols,
 			pending_events: VecDeque::new(),
 			peer_manager: manager::Manager::new(),
 		}
@@ -173,9 +173,30 @@ where
 		stream_muxer_box: StreamMuxerBox,
 		established_in: web_time::Duration,
 	) {
-		let protocol = self.protocols;
+		let handler = match connection_origin.clone() {
+			ConnectionOrigin::Dialer { remote_addr } => {
+				self.protocol
+					.on_new_connection(connection_id, peer_id, &remote_addr, None)
+			}
+			ConnectionOrigin::Listener {
+				remote_addr,
+				local_addr,
+			} => self
+				.protocol
+				.on_new_connection(connection_id, peer_id, &remote_addr, Some(&local_addr)),
+		};
+		let handler = match handler {
+			Ok(handler) => handler,
+			Err(err) => {
+				// TODO: Add something to let the protocol know something fail and fire a global event as well
+				tracing::error!("failed to dial or listen: {}", err);
+				// self.protocol.on_new_connection_error(connection_id, err);
+				return;
+			}
+		};
+
 		self.peer_manager
-			.spawn_connection(connection_id, peer_id, connection_origin, stream_muxer_box, protocol);
+			.spawn_connection(connection_id, peer_id, connection_origin, stream_muxer_box, handler);
 
 		let node_event = NodeEvent::ConnectionEstablished { connection_id, peer_id };
 		self.pending_events.push_back(node_event);

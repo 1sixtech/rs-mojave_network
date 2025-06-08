@@ -1,5 +1,12 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use multiaddr::Multiaddr;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConnectionOrigin {
-	Dialer,
-	Listener,
+	Dialer {
+		remote_addr: Multiaddr,
+	},
+	Listener {
+		local_addr: Multiaddr,
+		remote_addr: Multiaddr,
+	},
 }

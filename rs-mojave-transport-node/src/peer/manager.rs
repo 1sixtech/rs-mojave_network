@@ -20,7 +20,7 @@ use tracing::Instrument;
 use web_time::Instant;
 
 use crate::{
-	PeerProtocolBis,
+	ProtocolHandler,
 	connection::{Connection, ConnectionId},
 	executor::{Executor, get_executor},
 	peer::{PendingInboundConnectionError, PendingOutboundConnectionError, task},
@@ -47,9 +47,9 @@ pub struct EstablishedConnection<TFromProtocol> {
 	sender: mpsc::Sender<task::Command<TFromProtocol>>,
 }
 
-pub struct Manager<TProtocol>
+pub struct Manager<THandler>
 where
-	TProtocol: PeerProtocolBis,
+	THandler: ProtocolHandler,
 {
 	pending_peer_events_tx: mpsc::Sender<task::PendingPeerEvent>,
 	pending_peer_events_rx: mpsc::Receiver<task::PendingPeerEvent>,
@@ -57,15 +57,15 @@ where
 	peer_events: SelectAll<mpsc::Receiver<task::PeerEvent>>,
 	task_executor: TaskExecutor,
 	pending: HashMap<ConnectionId, PendingPeer>,
-	established: HashMap<PeerId, HashMap<ConnectionId, EstablishedConnection<TProtocol::FromProtocol>>>,
+	established: HashMap<PeerId, HashMap<ConnectionId, EstablishedConnection<THandler::FromProtocol>>>,
 
 	// connections
 	no_established_connections_waker: Option<Waker>,
 }
 
-impl<TProtocol> Manager<TProtocol>
+impl<THandler> Manager<THandler>
 where
-	TProtocol: PeerProtocolBis,
+	THandler: ProtocolHandler,
 {
 	pub fn new() -> Self {
 		let (pending_peer_events_tx, pending_peer_events_rx) = mpsc::channel(0);
@@ -109,7 +109,10 @@ where
 		self.pending.insert(
 			connection_id,
 			PendingPeer {
-				connection_origin: ConnectionOrigin::Listener,
+				connection_origin: ConnectionOrigin::Listener {
+					local_addr,
+					remote_addr,
+				},
 				abort_notifier: Some(abort_notifier),
 				accepted_at: Instant::now(),
 			},
@@ -136,7 +139,7 @@ where
 		self.pending.insert(
 			connection_id,
 			PendingPeer {
-				connection_origin: ConnectionOrigin::Dialer,
+				connection_origin: ConnectionOrigin::Dialer { remote_addr },
 				abort_notifier: Some(abort_notifier),
 				accepted_at: Instant::now(),
 			},
@@ -149,7 +152,7 @@ where
 		peer_id: PeerId,
 		connection_origin: ConnectionOrigin,
 		connection: StreamMuxerBox,
-		protocol: TProtocol,
+		protocol: THandler,
 	) {
 		let connections = self.established.entry(peer_id).or_default();
 
