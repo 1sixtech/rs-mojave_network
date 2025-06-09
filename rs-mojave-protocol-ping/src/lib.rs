@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, convert::Infallible, default, io, iter, task::Poll, time::Duration};
+use std::{collections::VecDeque, convert::Infallible, io, iter, task::Poll, time::Duration};
 
 use futures::{
 	future::{BoxFuture, Either, FutureExt},
@@ -6,10 +6,8 @@ use futures::{
 };
 use futures_timer::Delay;
 use multiaddr::PeerId;
-use rs_mojave_network_core::muxing::SubstreamBox;
 use rs_mojave_transport_node::{
-	Action, AsyncReadWrite, ConnectionId, FromNode, PeerProtocolBis, PeerProtocolError, ProtocolHandler,
-	ProtocolHandlerEvent, Stream, StreamId, StreamProtocol, ToNode,
+	Action, AsyncReadWrite, ConnectionId, FromNode, PeerProtocol, ProtocolHandler, ProtocolHandlerEvent, StreamProtocol,
 };
 
 mod config;
@@ -47,15 +45,6 @@ impl Default for Protocol {
 		Self::new(Config::default())
 	}
 }
-
-// #[tracing::instrument(level = "debug", name = "ProtocolPing::Poll", skip(self))]
-// 	fn poll(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Action<Self::Event>> {
-// 		if let Some(e) = self.events.pop_back() {
-// 			return Poll::Ready(Action::Event(e));
-// 		}
-// 		Poll::Pending
-// 	}
-//
 
 enum State {
 	Inactive { reported: bool },
@@ -212,7 +201,7 @@ impl ProtocolHandler for PingHandler {
 	}
 }
 
-impl PeerProtocolBis for Protocol {
+impl PeerProtocol for Protocol {
 	type ToNode = Event;
 
 	type Handler = PingHandler;

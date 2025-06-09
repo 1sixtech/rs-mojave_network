@@ -9,7 +9,7 @@ use multiaddr::{Multiaddr, PeerId};
 use rs_mojave_network_core::{muxing::StreamMuxerBox, transport::TransportError};
 
 use crate::{
-	ConnectionError, PeerProtocolBis, ProtocolHandler,
+	ConnectionError, ProtocolHandler,
 	connection::{self, ConnectionId},
 	peer::{PendingInboundConnectionError, PendingOutboundConnectionError},
 };

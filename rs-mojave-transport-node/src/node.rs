@@ -14,14 +14,14 @@ use tracing::{error, info};
 use crate::connection::ConnectionId;
 use crate::error::Error;
 use crate::peer::manager::{self, PeerEvent};
-use crate::{NodeEvent, PeerProtocolBis, peer};
+use crate::{NodeEvent, PeerProtocol, peer};
 
 type TransportEventBoxed =
 	TransportEvent<<transport::Boxed<(PeerId, StreamMuxerBox)> as Transport>::ListenerUpgrade, io::Error>;
 
 pub struct Node<TProtocol>
 where
-	TProtocol: PeerProtocolBis,
+	TProtocol: PeerProtocol,
 {
 	pub peer_id: PeerId,
 	transports: HashMap<Protocol, Boxed<(PeerId, StreamMuxerBox)>>,
@@ -31,11 +31,11 @@ where
 	protocol: TProtocol,
 }
 
-impl<TProtocols> Unpin for Node<TProtocols> where TProtocols: PeerProtocolBis {}
+impl<TProtocols> Unpin for Node<TProtocols> where TProtocols: PeerProtocol {}
 
 impl<TProtocols> Node<TProtocols>
 where
-	TProtocols: PeerProtocolBis,
+	TProtocols: PeerProtocol,
 {
 	pub fn new(
 		peer_id: PeerId,
@@ -148,8 +148,8 @@ where
 	#[inline]
 	fn handle_peer_event_pending_outbound_connection_error(
 		&mut self,
-		connection_id: ConnectionId,
-		error: peer::PendingOutboundConnectionError,
+		_connection_id: ConnectionId,
+		_error: peer::PendingOutboundConnectionError,
 	) {
 		todo!()
 	}
@@ -157,8 +157,8 @@ where
 	#[inline]
 	fn handle_peer_event_pending_inbound_connection_error(
 		&mut self,
-		connection_id: ConnectionId,
-		error: peer::PendingInboundConnectionError,
+		_connection_id: ConnectionId,
+		_error: peer::PendingInboundConnectionError,
 	) {
 		todo!()
 	}
@@ -264,7 +264,7 @@ where
 
 impl<TProtocols> futures::Stream for Node<TProtocols>
 where
-	TProtocols: PeerProtocolBis,
+	TProtocols: PeerProtocol,
 {
 	type Item = NodeEvent;
 
@@ -275,7 +275,7 @@ where
 
 impl<TProtocols> FusedStream for Node<TProtocols>
 where
-	TProtocols: PeerProtocolBis,
+	TProtocols: PeerProtocol,
 {
 	fn is_terminated(&self) -> bool {
 		false

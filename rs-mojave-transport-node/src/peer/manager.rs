@@ -159,7 +159,7 @@ where
 		// TODO: replace with config vars
 		let (command_sender, command_receiver) = mpsc::channel(16);
 		// TODO: replace with config vars
-		let (event_sender, event_receiver) = mpsc::channel(16);
+		let (event_sender, _event_receiver) = mpsc::channel(16);
 
 		let established_connection = EstablishedConnection {
 			connection_origin,

@@ -4,7 +4,6 @@ use std::{
 };
 
 use multiaddr::{Multiaddr, PeerId};
-use rs_mojave_network_core::muxing::SubstreamBox;
 use thiserror::Error;
 
 use crate::{AsyncReadWrite, ConnectionError, StreamProtocol, connection::ConnectionId, stream_id::StreamId};
@@ -21,7 +20,7 @@ pub enum PeerProtocolError {
 
 pub enum FromNode {}
 
-pub type THandler<TProtocol> = <TProtocol as PeerProtocolBis>::Handler;
+pub type THandler<TProtocol> = <TProtocol as PeerProtocol>::Handler;
 pub type THandlerFromEvent<TProtocol> = <THandler<TProtocol> as ProtocolHandler>::FromProtocol;
 pub type THandlerToEvent<TProtocol> = <THandler<TProtocol> as ProtocolHandler>::ToProtocol;
 
@@ -54,19 +53,11 @@ pub trait ProtocolHandler: Send + 'static {
 
 	fn poll(&mut self, cx: &mut Context<'_>) -> Poll<ProtocolHandlerEvent<Self::ToProtocol>>;
 }
-// TODO
-// TODO:
 
-pub trait PeerProtocolBis: Send + 'static {
+pub trait PeerProtocol: Send + 'static {
 	type ToNode: Send + 'static;
 
 	type Handler: ProtocolHandler;
-
-	/// Should we accept this INBOUND connection?
-	/// Only called when someone dials us
-	fn accept_connection(&mut self, peer_id: Option<PeerId>, addr: &Multiaddr) -> bool {
-		true // Accept by default
-	}
 
 	fn on_new_connection(
 		&mut self,

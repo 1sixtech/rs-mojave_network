@@ -6,13 +6,13 @@ use rs_mojave_network_core::{
 };
 use std::collections::{HashMap, hash_map::Entry};
 
-use crate::{Node, PeerProtocolBis, error::BuilderError};
+use crate::{Node, PeerProtocol, error::BuilderError};
 
 pub struct BuildableStep;
 
 pub struct ProtocolsState<TProtocols>
 where
-	TProtocols: PeerProtocolBis,
+	TProtocols: PeerProtocol,
 {
 	protocols: TProtocols,
 }
@@ -57,7 +57,7 @@ impl Builder<BuildingStep, BuildingState> {
 		}
 	}
 
-	pub fn with_protocol<P: PeerProtocolBis, R: TryIntoPeerProtocol<P> + PeerProtocolBis>(
+	pub fn with_protocol<P: PeerProtocol, R: TryIntoPeerProtocol<P> + PeerProtocol>(
 		self,
 		constructor: impl FnOnce(&libp2p_identity::Keypair) -> R,
 	) -> Result<Builder<BuildableStep, ProtocolsState<P>>, R::Error> {
@@ -74,7 +74,7 @@ impl Builder<BuildingStep, BuildingState> {
 
 impl<TProtocols> Builder<BuildableStep, ProtocolsState<TProtocols>>
 where
-	TProtocols: PeerProtocolBis,
+	TProtocols: PeerProtocol,
 {
 	pub fn build(self) -> Node<TProtocols> {
 		Node::new(
@@ -93,7 +93,7 @@ pub trait TryIntoPeerProtocol<P> {
 
 impl<P> TryIntoPeerProtocol<P> for P
 where
-	P: PeerProtocolBis,
+	P: PeerProtocol,
 {
 	type Error = std::convert::Infallible;
 
@@ -108,7 +108,7 @@ pub struct PeerProtocolBuildError(Box<dyn std::error::Error + Send + Sync + 'sta
 
 impl<P> TryIntoPeerProtocol<P> for Result<P, Box<dyn std::error::Error + Send + Sync>>
 where
-	P: PeerProtocolBis,
+	P: PeerProtocol,
 {
 	type Error = PeerProtocolBuildError;
 

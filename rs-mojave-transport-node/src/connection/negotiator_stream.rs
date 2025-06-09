@@ -5,14 +5,13 @@ use std::{
 };
 
 use asynchronous_codec::{Framed, LengthCodec};
-use bytes::{Buf, Bytes};
+use bytes::Bytes;
 use futures::{AsyncRead, AsyncWrite, FutureExt, Sink, Stream};
 use futures_timer::Delay;
 use pin_project::pin_project;
-use rs_mojave_network_core::muxing::SubstreamBox;
 use serde::{Deserialize, Serialize};
 
-use crate::{ProtocolHandler, StreamProtocol, protocol};
+use crate::StreamProtocol;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamProtocols(pub Vec<StreamProtocol>);
@@ -69,7 +68,7 @@ where
 			Poll::Pending => {}
 		}
 
-		let mut this = self.project();
+		let this = self.project();
 
 		loop {
 			match std::mem::replace(this.state, OutboundState::Done) {
@@ -200,7 +199,7 @@ where
 			Poll::Pending => {}
 		}
 
-		let mut this = self.project();
+		let this = self.project();
 
 		loop {
 			match std::mem::replace(this.state, InboundState::Done) {
