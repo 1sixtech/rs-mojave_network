@@ -62,13 +62,12 @@ where
 {
 	type Output = Result<S, NegotiatorStreamError>;
 
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		match self.timeout.poll_unpin(cx) {
-			Poll::Ready(_) => return Poll::Ready(Err(NegotiatorStreamError::Timeout)),
-			Poll::Pending => {}
-		}
-
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let this = self.project();
+
+		if this.timeout.poll_unpin(cx).is_ready() {
+			return Poll::Ready(Err(NegotiatorStreamError::Timeout));
+		}
 
 		loop {
 			match std::mem::replace(this.state, OutboundState::Done) {
@@ -193,13 +192,12 @@ where
 {
 	type Output = Result<S, NegotiatorStreamError>;
 
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		match self.timeout.poll_unpin(cx) {
-			Poll::Ready(_) => return Poll::Ready(Err(NegotiatorStreamError::Timeout)),
-			Poll::Pending => {}
-		}
-
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let this = self.project();
+
+		if this.timeout.poll_unpin(cx).is_ready() {
+			return Poll::Ready(Err(NegotiatorStreamError::Timeout));
+		}
 
 		loop {
 			match std::mem::replace(this.state, InboundState::Done) {
