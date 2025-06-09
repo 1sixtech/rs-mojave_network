@@ -14,11 +14,11 @@ use multiaddr::Multiaddr;
 use rs_mojave_network_core::muxing::{StreamMuxerBox, StreamMuxerEvent, StreamMuxerExt};
 
 mod connection_id;
-mod negotiator_stream;
+mod negotiator;
 
 use crate::{
 	ConnectionEvent, ProtocolHandler,
-	connection::negotiator_stream::{NegotiatorInboundStream, NegotiatorOutboundStream, StreamProtocols},
+	connection::negotiator::{InboundStream, OutboundStream, StreamProtocols},
 };
 
 pub trait AsyncReadWrite: AsyncRead + AsyncWrite {}
@@ -35,9 +35,9 @@ pub struct Connection<THandler> {
 
 	futures_substream: FuturesUnordered<FutureSubstream>,
 
-	negotiating_in: FuturesUnordered<NegotiatorInboundStream<Box<dyn AsyncReadWrite + Send + Unpin>>>,
+	negotiating_in: FuturesUnordered<InboundStream<Box<dyn AsyncReadWrite + Send + Unpin>>>,
 
-	negotiating_out: FuturesUnordered<NegotiatorOutboundStream<Box<dyn AsyncReadWrite + Send + Unpin>>>,
+	negotiating_out: FuturesUnordered<OutboundStream<Box<dyn AsyncReadWrite + Send + Unpin>>>,
 }
 
 enum FutureSubstream {
@@ -232,7 +232,7 @@ where
 						// need to start negotiating the protocol
 						tracing::info!("Opening outbound negotiation substream {} ", self.negotiating_out.len());
 						self.negotiating_out
-							.push(NegotiatorOutboundStream::new(self.protocols.clone(), Box::new(stream)));
+							.push(OutboundStream::new(self.protocols.clone(), Box::new(stream)));
 						continue;
 					}
 				}
@@ -245,7 +245,7 @@ where
 					// need to start negotiating the protocol
 					tracing::info!("Opening inbound negotiation substream {}", self.negotiating_in.len());
 					self.negotiating_in
-						.push(NegotiatorInboundStream::new(self.protocols.clone(), Box::new(stream)));
+						.push(InboundStream::new(self.protocols.clone(), Box::new(stream)));
 					continue;
 				}
 			}
