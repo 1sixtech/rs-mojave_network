@@ -120,7 +120,7 @@ impl ProtocolHandler for PingHandler {
 
 	fn on_connection_event(&mut self, event: rs_mojave_transport_node::ConnectionEvent) {
 		match event {
-			rs_mojave_transport_node::ConnectionEvent::NewInboudStream(substream_box) => {
+			rs_mojave_transport_node::ConnectionEvent::NewInboundStream(substream_box) => {
 				self.pong = Some(protocol::recv_ping(substream_box).boxed());
 			}
 			rs_mojave_transport_node::ConnectionEvent::NewOutboundStream(substream_box) => {

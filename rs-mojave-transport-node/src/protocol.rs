@@ -30,7 +30,7 @@ pub enum ProtocolHandlerEvent<TEvent> {
 }
 
 pub enum ConnectionEvent {
-	NewInboudStream(Box<dyn AsyncReadWrite + Send + Unpin>),
+	NewInboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
 	NewOutboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
 }
 

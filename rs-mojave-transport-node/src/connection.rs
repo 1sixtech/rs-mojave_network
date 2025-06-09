@@ -188,7 +188,7 @@ where
 			match self.negotiating_in.poll_next_unpin(cx) {
 				Poll::Ready(Some(Ok(io))) => {
 					tracing::info!("negotiation inbound completed");
-					self.handler.on_connection_event(ConnectionEvent::NewInboudStream(io));
+					self.handler.on_connection_event(ConnectionEvent::NewInboundStream(io));
 
 					continue;
 				}
