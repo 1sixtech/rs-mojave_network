@@ -21,7 +21,4 @@ pub enum NegotiatorStreamError {
 
 	#[error("Negotiation failed")]
 	NegotiationFailed,
-
-	#[error("Invalid protocol")]
-	InvalidProtocol,
 }

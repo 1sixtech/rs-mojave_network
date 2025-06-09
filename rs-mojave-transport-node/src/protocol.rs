@@ -6,7 +6,11 @@ use std::{
 use multiaddr::{Multiaddr, PeerId};
 use thiserror::Error;
 
-use crate::{AsyncReadWrite, ConnectionError, StreamProtocol, connection::ConnectionId, stream_id::StreamId};
+use crate::{
+	AsyncReadWrite, ConnectionError, StreamProtocol,
+	connection::{self, ConnectionId},
+	stream_id::StreamId,
+};
 
 mod to_node;
 
@@ -32,6 +36,7 @@ pub enum ProtocolHandlerEvent<TEvent> {
 pub enum ConnectionEvent {
 	NewInboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
 	NewOutboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
+	FailNegotiation(connection::negotiator::NegotiatorStreamError),
 }
 
 pub trait ProtocolHandler: Send + 'static {

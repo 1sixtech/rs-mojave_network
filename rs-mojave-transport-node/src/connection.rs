@@ -14,7 +14,7 @@ use multiaddr::Multiaddr;
 use rs_mojave_network_core::muxing::{StreamMuxerBox, StreamMuxerEvent, StreamMuxerExt};
 
 mod connection_id;
-mod negotiator;
+pub mod negotiator;
 
 use crate::{
 	ConnectionEvent, ProtocolHandler,

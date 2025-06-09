@@ -4,9 +4,9 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub struct Config {
 	/// The timeout of an outbound ping.
-	timeout: Duration,
+	pub(crate) timeout: Duration,
 	/// The duration between outbound pings.
-	interval: Duration,
+	pub(crate) interval: Duration,
 }
 
 impl Config {
