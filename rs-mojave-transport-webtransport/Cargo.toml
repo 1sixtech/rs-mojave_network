@@ -1,0 +1,33 @@
+[package]
+edition = "2024"
+name = "rs-mojave-transport-webtransport"
+version = "0.1.0"
+
+[dependencies]
+anyhow.workspace = true
+asynchronous-codec.workspace = true
+bytes.workspace = true
+futures.workspace = true
+hex.workspace = true
+libp2p-identity = { workspace = true, features = ["peerid"] }
+multiaddr.workspace = true
+pin-project.workspace = true
+reqwest.workspace = true
+rs-mojave-network-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+axum = { workspace = true, features = ["tokio", "http2", "http1"] }
+bytes.workspace = true
+hyper-serve = { workspace = true, features = ["tls-rustls"] }
+if-addrs.workspace = true
+if-watch = { workspace = true, features = ["tokio"] }
+moq-native.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tower-http = { workspace = true, features = ["cors", "trace"] }
+web-transport.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+edition = "2024"
+name = "rs-mojave-network-core"
+version = "0.1.0"
+
+[dependencies]
+futures.workspace = true
+multiaddr.workspace = true
+pin-project.workspace = true
+
+[lints]
+workspace = true

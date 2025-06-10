@@ -1,0 +1,26 @@
+[package]
+edition = "2024"
+name = "rs-mojave-protocol-ping"
+version = "0.1.0"
+
+[dependencies]
+rs-mojave-network-core.workspace = true
+rs-mojave-transport-node.workspace = true
+
+futures.workspace = true
+futures-timer.workspace = true
+multiaddr.workspace = true
+rand = { workspace = true, features = ["thread_rng"] }
+semver.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+web-time.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = [
+  "wasm_js",
+], default-features = false }
+
+
+[lints]
+workspace = true
