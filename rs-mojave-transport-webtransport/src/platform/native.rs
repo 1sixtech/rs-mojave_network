@@ -4,7 +4,7 @@ use axum::{
 };
 use core::net;
 use hyper_serve::accept::DefaultAcceptor;
-use moq_native::quic;
+use moq_native::server;
 use multiaddr::{Multiaddr, Protocol};
 use rs_mojave_network_core::transport::TransportEvent;
 use std::net::{IpAddr, SocketAddr};
@@ -15,7 +15,7 @@ use crate::{Error, listener::Listener};
 
 pub(crate) struct WebConfig {
 	pub(crate) bind: net::SocketAddr,
-	pub(crate) tls: moq_native::tls::Config,
+	pub(crate) fingerprints: Vec<String>,
 }
 
 pub fn extract_ip_port(addr: Multiaddr) -> Result<(IpAddr, u16), Error> {
@@ -48,7 +48,7 @@ pub fn extract_ip_port(addr: Multiaddr) -> Result<(IpAddr, u16), Error> {
 }
 
 pub fn listen_on(
-	config: &quic::Config,
+	config: &server::ServerConfig,
 	allow_tcp_fingerprint: bool,
 	addr: Multiaddr,
 	keypair: libp2p_identity::Keypair,
@@ -61,20 +61,19 @@ pub fn listen_on(
 		(None, Some(TransportEvent::ListenAddress { address: addr.clone() }))
 	};
 
-	let quic = quic::Endpoint::new(quic::Config {
-		bind,
+	let server = server::Server::new(server::ServerConfig {
+		listen: Some(bind),
 		tls: config.tls.clone(),
 	})
 	.map_err(Error::InvalidQuicEndpoint)?;
-	let server = quic.server.ok_or(Error::InvalidServer)?;
 
 	let local_addr = server.local_addr().map_err(Error::InvalidQuicEndpoint)?;
-
 	let mut handle = None;
 	if allow_tcp_fingerprint {
+		let fingerprints = server.fingerprints();
 		let web_server = Web::new(WebConfig {
 			bind: local_addr,
-			tls: config.tls.clone(),
+			fingerprints: fingerprints.to_vec(),
 		});
 		handle = Some(web_server.handle.clone());
 		tokio::spawn(async move { web_server.run().await.expect("failed to start web server") });
@@ -98,11 +97,9 @@ struct Web {
 
 impl Web {
 	pub fn new(config: WebConfig) -> Self {
-		let fingerprint = config.tls.fingerprints.first().expect("missing certificate").clone();
-
 		let app = axum::Router::new()
 			.route("/fingerprint", axum::routing::get(get_fingerprint))
-			.layer(Extension(fingerprint.clone()))
+			.layer(Extension(config.fingerprints.first().expect("no fingerprints").clone()))
 			.layer(CorsLayer::new().allow_origin(Any).allow_methods(Any));
 
 		let handle = hyper_serve::Handle::new();

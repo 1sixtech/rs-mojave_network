@@ -21,7 +21,8 @@ pub(crate) async fn upgrade_outbound(
 		))
 		.await
 		.map_err(Error::ReqwestError)?;
-		let fingerprint = hex::decode(response.text().await.map_err(Error::ReqwestError)?).map_err(Error::HexError)?;
+		let body = response.text().await.map_err(Error::ReqwestError)?;
+		let fingerprint = hex::decode(body.trim()).map_err(Error::HexError)?;
 		Some(fingerprint)
 	} else {
 		None

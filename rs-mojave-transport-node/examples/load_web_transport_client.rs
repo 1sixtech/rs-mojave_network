@@ -2,7 +2,7 @@ use anyhow::{Context, Ok};
 use clap::Parser;
 use futures::StreamExt;
 use libp2p_identity::Keypair;
-use moq_native::quic;
+use moq_native::server;
 use rs_mojave_network_core::{muxing::StreamMuxerBox, transport::Transport};
 use rs_mojave_transport_node::Builder;
 
@@ -14,7 +14,7 @@ pub struct Config {
 
 	/// The TLS configuration.
 	#[command(flatten)]
-	pub tls: moq_native::tls::Args,
+	pub tls: moq_native::server::ServerTlsConfig,
 }
 
 #[tokio::main]
@@ -48,13 +48,10 @@ async fn main() -> anyhow::Result<()> {
 		.next()
 		.context("invalid bind address")?;
 
-	let tls = config.tls.load()?;
-
-	if tls.server.is_none() {
-		anyhow::bail!("missing TLS certificates");
-	}
-
-	let config = quic::Config { bind, tls };
+	let config = server::ServerConfig {
+		listen: Some(bind),
+		tls: config.tls,
+	};
 
 	let mut node = Builder::new(keypair)
 		.with_transport(|keypair| {

@@ -7,7 +7,7 @@ use std::{
 
 use futures::{StreamExt, future::BoxFuture};
 
-use moq_native::quic;
+use moq_native::server;
 use multiaddr::{Multiaddr, PeerId};
 use rs_mojave_network_core::{
 	Transport,
@@ -25,7 +25,7 @@ type PendingEvent = TransportEvent<BoxFuture<'static, Result<(PeerId, Connection
 
 pub struct WebTransport {
 	#[cfg(not(target_arch = "wasm32"))]
-	config: quic::Config,
+	config: server::ServerConfig,
 	/// Allow dialing the MA by tcp to get the fingerprint.
 	allow_tcp_fingerprint: bool,
 
@@ -38,7 +38,7 @@ pub struct WebTransport {
 
 impl WebTransport {
 	#[cfg(not(target_arch = "wasm32"))]
-	pub fn new(config: quic::Config, allow_tcp_fingerprint: bool, keypair: libp2p_identity::Keypair) -> Self {
+	pub fn new(config: server::ServerConfig, allow_tcp_fingerprint: bool, keypair: libp2p_identity::Keypair) -> Self {
 		Self {
 			config,
 			allow_tcp_fingerprint,

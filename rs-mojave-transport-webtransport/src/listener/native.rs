@@ -1,7 +1,7 @@
 use asynchronous_codec::{Framed, LengthCodec};
 use futures::future::BoxFuture;
 use futures::{Stream as FuturesStream, ready};
-use moq_native::quic;
+use moq_native::server;
 use multiaddr::{Multiaddr, PeerId, Protocol};
 use rs_mojave_network_core::Transport;
 use rs_mojave_network_core::transport::TransportEvent;
@@ -30,7 +30,7 @@ pub struct Listener {
 
 impl Listener {
 	pub fn new(
-		mut quic: quic::Server,
+		mut quic: server::Server,
 		bind: SocketAddr,
 		handle: Option<hyper_serve::Handle>,
 		if_watcher: Option<if_watch::tokio::IfWatcher>,

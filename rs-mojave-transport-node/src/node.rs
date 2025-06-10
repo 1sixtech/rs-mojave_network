@@ -149,8 +149,9 @@ where
 	fn handle_peer_event_pending_outbound_connection_error(
 		&mut self,
 		_connection_id: ConnectionId,
-		_error: peer::PendingOutboundConnectionError,
+		error: peer::PendingOutboundConnectionError,
 	) {
+		tracing::error!(?error, "Pending outbound connection error");
 		todo!()
 	}
 
