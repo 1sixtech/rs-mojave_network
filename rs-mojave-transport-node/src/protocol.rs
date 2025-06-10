@@ -37,6 +37,7 @@ pub enum ConnectionEvent {
 	NewInboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
 	NewOutboundStream(Box<dyn AsyncReadWrite + Send + Unpin>),
 	FailNegotiation(connection::negotiator::NegotiatorStreamError),
+	AddressChange(Multiaddr),
 }
 
 pub trait ProtocolHandler: Send + 'static {

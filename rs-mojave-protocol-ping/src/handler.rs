@@ -104,6 +104,7 @@ impl ProtocolHandler for Handler {
 
 				self.pending_errors.push_front(error);
 			}
+			_ => {}
 		}
 	}
 

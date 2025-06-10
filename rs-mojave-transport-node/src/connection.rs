@@ -149,13 +149,6 @@ where
 				Poll::Ready(None) | Poll::Pending => {}
 			}
 
-			println!(
-				"len futures, {}\nlen neg_out: {}\nlen neg_in: {}",
-				self.futures_substream.len(),
-				self.negotiating_out.len(),
-				self.negotiating_in.len()
-			);
-
 			// 2nd check what is new on the handler side
 			match self.handler.poll(cx) {
 				Poll::Pending => {}
@@ -178,8 +171,8 @@ where
 					self.handler.on_connection_event(ConnectionEvent::NewOutboundStream(io));
 					continue;
 				}
-				Poll::Ready(Some(Err(_e))) => {
-					tracing::error!("negotiation failed");
+				Poll::Ready(Some(Err(e))) => {
+					self.handler.on_connection_event(ConnectionEvent::FailNegotiation(e));
 					continue;
 				}
 				Poll::Ready(None) | Poll::Pending => {}
@@ -192,8 +185,8 @@ where
 
 					continue;
 				}
-				Poll::Ready(Some(Err(_e))) => {
-					tracing::error!("negotiation failed");
+				Poll::Ready(Some(Err(e))) => {
+					self.handler.on_connection_event(ConnectionEvent::FailNegotiation(e));
 					continue;
 				}
 				Poll::Ready(None) | Poll::Pending => {}
@@ -214,7 +207,8 @@ where
 				Poll::Pending => {}
 				Poll::Ready(StreamMuxerEvent::AddressChange(new_address)) => {
 					// TODO: fire a conneciton event
-					tracing::info!("Address change event received");
+					self.handler
+						.on_connection_event(ConnectionEvent::AddressChange(new_address.clone()));
 					return Poll::Ready(Ok(Event::AddressChange(new_address)));
 				}
 			}
