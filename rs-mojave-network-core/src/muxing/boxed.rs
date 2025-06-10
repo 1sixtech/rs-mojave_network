@@ -47,10 +47,7 @@ where
 	type Error = io::Error;
 
 	#[inline]
-	fn poll_inbound(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Result<Self::Substream, Self::Error>> {
+	fn poll_inbound(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Self::Substream, Self::Error>> {
 		self.project()
 			.inner
 			.poll_inbound(cx)
@@ -59,10 +56,7 @@ where
 	}
 
 	#[inline]
-	fn poll_outbound(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Result<Self::Substream, Self::Error>> {
+	fn poll_outbound(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Self::Substream, Self::Error>> {
 		self.project()
 			.inner
 			.poll_outbound(cx)
@@ -76,10 +70,7 @@ where
 	}
 
 	#[inline]
-	fn poll(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Result<StreamMuxerEvent, Self::Error>> {
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<StreamMuxerEvent, Self::Error>> {
 		self.project().inner.poll(cx).map_err(into_io_error)
 	}
 }
@@ -101,9 +92,7 @@ impl StreamMuxerBox {
 	{
 		let wrap = Wrap { inner: muxer };
 
-		StreamMuxerBox {
-			inner: Box::pin(wrap),
-		}
+		StreamMuxerBox { inner: Box::pin(wrap) }
 	}
 
 	fn project(
@@ -117,17 +106,11 @@ impl StreamMuxer for StreamMuxerBox {
 	type Substream = SubstreamBox;
 	type Error = io::Error;
 
-	fn poll_inbound(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Result<Self::Substream, Self::Error>> {
+	fn poll_inbound(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Self::Substream, Self::Error>> {
 		self.project().poll_inbound(cx)
 	}
 
-	fn poll_outbound(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Result<Self::Substream, Self::Error>> {
+	fn poll_outbound(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Self::Substream, Self::Error>> {
 		self.project().poll_outbound(cx)
 	}
 
@@ -136,10 +119,7 @@ impl StreamMuxer for StreamMuxerBox {
 		self.project().poll_close(cx)
 	}
 
-	fn poll(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Result<StreamMuxerEvent, Self::Error>> {
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<StreamMuxerEvent, Self::Error>> {
 		self.project().poll(cx)
 	}
 }
@@ -176,11 +156,7 @@ where
 }
 
 impl AsyncRead for SubstreamBox {
-	fn poll_read(
-		mut self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-		buf: &mut [u8],
-	) -> Poll<std::io::Result<usize>> {
+	fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<std::io::Result<usize>> {
 		self.0.as_mut().poll_read(cx, buf)
 	}
 
@@ -194,11 +170,7 @@ impl AsyncRead for SubstreamBox {
 }
 
 impl AsyncWrite for SubstreamBox {
-	fn poll_write(
-		mut self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-		buf: &[u8],
-	) -> Poll<std::io::Result<usize>> {
+	fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
 		self.0.as_mut().poll_write(cx, buf)
 	}
 
